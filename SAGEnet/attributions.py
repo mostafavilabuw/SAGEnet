@@ -2,17 +2,19 @@ import numpy as np
 import pandas as pd 
 import argparse
 import os
-from SAGEnet.data import ReferenceGenomeDataset,onehot_encoding
-from SAGEnet.models import pSAGEnet,rSAGEnet
-import tangermeme.plot
-from tangermeme.seqlet import recursive_seqlets
-from tangermeme.annotate import annotate_seqlets
+from SAGEnet.data import ReferenceGenomeDataset, VariantDataset
+import SAGEnet.tools
 import torch
 import logging
 import matplotlib.pyplot as plt
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger("numba").setLevel(logging.WARNING)
-#from SAGEnet.enformer import Enformer
+
+#from SAGEnet.models import pSAGEnet,rSAGEnet
+#import tangermeme.plot
+#from tangermeme.seqlet import recursive_seqlets
+#from tangermeme.annotate import annotate_seqlets
+from SAGEnet.enformer import Enformer
 
 ENFORMER_INPUT_LEN=393216
 
@@ -183,12 +185,15 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
     
     Saves: Numpy array of attributions (centered), shape (4, seq_len). 
     """
-    
+    model_type=model_type.lower()
+    if model_type=='enformer':
+        input_len=ENFORMER_INPUT_LEN
+
     # determine ISM start and stop idxs in sequence 
     start_of_interest = ism_center_genome_pos-ism_win_size//2
     end_of_interest = ism_center_genome_pos+ism_win_size//2
-    start_ism_idx = SAGEnet.tools.get_pos_idx_in_seq(gene_of_interest, start_of_interest,tss_data_path,input_len,allow_reverse_complement=allow_reverse_complement)
-    end_ism_idx = SAGEnet.tools.get_pos_idx_in_seq(gene_of_interest, end_of_interest,tss_data_path,input_len,allow_reverse_complement=allow_reverse_complement)
+    start_ism_idx = SAGEnet.tools.get_pos_idx_in_seq(gene, start_of_interest,tss_data_path,input_len,allow_reverse_complement=allow_reverse_complement)
+    end_ism_idx = SAGEnet.tools.get_pos_idx_in_seq(gene, end_of_interest,tss_data_path,input_len,allow_reverse_complement=allow_reverse_complement)
     start_ism_idx=min(start_ism_idx,end_ism_idx)
     end_ism_idx=start_ism_idx+ism_win_size
         
@@ -223,11 +228,11 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
         if variant_info.iloc[0]['gene']!=gene: 
             raise ValueError(f"gene in variant info ({variant_info.iloc[0]['gene']}) does not match gene provided ({gene})")
   
-        dataset = VariantDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,variant_info=variant_info, allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq,insert_variant=True)
+        dataset = VariantDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,variant_info=variant_info, allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq,insert_variants=True)
         insert_variant=1
-    x = dataset[0][0].unsqueeze(0)
+    x = dataset[0][0].unsqueeze(0).numpy()
     
-    if model_type == 'pSAGEnet': 
+    if model_type == 'psagenet': 
         ism_res = np.zeros((2,4,ism_win_size,2)) # the first dim is for ref or personal, the 3rd is for first model output or 2nd model output 
         for ref_or_personal_idx in [0,1]: # which sequence we are mutating 
             for len_idx in range(ism_win_size):
@@ -243,19 +248,20 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
     else: # rSAGEnet or enformer 
         ism_res = np.zeros((4,ism_win_size)) 
         for len_idx in range(ism_win_size):
+            print(f'len_idx:{len_idx}')
             pos_idx = len_idx+start_ism_idx
             for nuc_idx in range(4): 
-                mutated_seq = ref_seq_as_model_input.copy()
+                mutated_seq = x.copy()
                 mutated_seq[0,:,pos_idx] = np.zeros(4)
                 mutated_seq[0,nuc_idx,pos_idx]=1
                 mutated_seq=torch.from_numpy(mutated_seq)
-                mutated_seq=mutated_seq.to(device)
                 if model_type=='enformer': 
                     ism_res[nuc_idx,len_idx] = model.predict_on_batch(mutated_seq,save_mode='finetuned')
                 else: 
+                    mutated_seq=mutated_seq.to(device)
                     ism_res[nuc_idx,len_idx] = model(mutated_seq)[0].detach().cpu().numpy() 
                 
-    ism_res = SAGEnet.tools.mean_center_attribtuions(ism_res)
+    ism_res = SAGEnet.tools.mean_center_attributions(ism_res)
     if insert_variant:         
         np.save(f"{results_save_dir}{gene}_ism_res_{start_of_interest}_to_{end_of_interest}_pos_{variant_info.iloc[0]['pos']}_{variant_info.iloc[0]['ref']}_to_{variant_info.iloc[0]['alt']}", ism_res)
     else: 
@@ -379,7 +385,7 @@ if __name__ == '__main__':
     parser.add_argument('--hg38_file_path', default='/data/tuxm/project/Decipher-multi-modality/data/genome/hg38.fa')
     parser.add_argument('--predixcan_res_path', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/results_data/predixcan/rosmap_pearson_corr.csv')
     parser.add_argument('--tss_data_path', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/gene-ids-and-positions.tsv')
-    parser.add_argument('--enformer_finetuned_weights_dir',default='/data/mostafavilab/personal_genome_expr/final_results/enformer/ref_seq_all_tracks/')
+    parser.add_argument('--finetuned_weights_dir',default='/data/mostafavilab/personal_genome_expr/final_results/enformer/ref_seq_all_tracks/')
     parser.add_argument('--motif_database_path', default='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme')
 
     parser.add_argument("--which_fn")
