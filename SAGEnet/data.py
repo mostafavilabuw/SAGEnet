@@ -130,8 +130,9 @@ class ReferenceGenomeDataset(Dataset):
             express_tensor = torch.from_numpy(np.stack((mean_expr, 0), axis=0))
 
             # include placeholder gene_idx, sample_idx 
-            return all_seq_tensor.float(), express_tensor.float(), 0, 0
-        
+            #return all_seq_tensor.float(), express_tensor.float(), 0, 0
+            return all_seq_tensor.float(), express_tensor.float()
+
 
 class VariantDataset(Dataset):
     def __init__(
