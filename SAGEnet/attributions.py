@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger("numba").setLevel(logging.WARNING)
 
-#from SAGEnet.models import pSAGEnet,rSAGEnet
-#import tangermeme.plot
-#from tangermeme.seqlet import recursive_seqlets
-#from tangermeme.annotate import annotate_seqlets
+from SAGEnet.models import pSAGEnet,rSAGEnet
+import tangermeme.plot
+from tangermeme.seqlet import recursive_seqlets
+from tangermeme.annotate import annotate_seqlets
 from SAGEnet.enformer import Enformer
 
 ENFORMER_INPUT_LEN=393216
@@ -132,6 +132,7 @@ def save_ref_seq_gradients(ckpt_path, results_save_dir, num_genes, tss_data_path
     dataset = ReferenceGenomeDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq)
 
     for i, (x, y) in enumerate(dataset):
+        print(i)
         x = x.unsqueeze(0).to(device)
         x.requires_grad_()
         model_output = model(x)[0]
@@ -332,7 +333,7 @@ def mult_gene_save_annotated_seqlets(attrib_path,gene_list_path, hg38_file_path,
     attribs = np.load(attrib_path)
     attribs_label = attrib_path.split('/')[-1].split('.')[0] # label for directory in which to save annotations 
 
-    attribs_gene_list = np.load(f'{attribs_save_dir}gene_list.npy')
+    attribs_gene_list = np.load(f'{attribs_save_dir}gene_list.npy',allow_pickle=True)
     use_gene_list = np.load(gene_list_path,allow_pickle=True)
     use_gene_list_idxs = [np.where(attribs_gene_list == value)[0][0] for value in use_gene_list]
     
@@ -342,15 +343,14 @@ def mult_gene_save_annotated_seqlets(attrib_path,gene_list_path, hg38_file_path,
     for use_gene_idx in use_gene_list_idxs: 
         gene = attribs_gene_list[use_gene_idx]
         
-        
-        if f'{gene}.csv' not in os.listdir(attrib_analysis_save_dir):
-            print(gene)
-            attrib = attribs[use_gene_idx,:]
-            selected_genes_meta = gene_meta_info.set_index('ensg', drop=False).loc[[gene]]
-            ref_dataset = ReferenceGenomeDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=True)
-            ref_seq = dataset[0][0]
-            annotated_seqlets =  get_annotated_seqlets(attrib,ref_seq,additional_flanks=additional_flanks,threshold=threshold,motif_database_path=motif_database_path,n_nearest=n_nearest)
-            annotated_seqlets.to_csv(f'{attrib_analysis_save_dir}{gene}.csv')
+        #if f'{gene}.csv' not in os.listdir(attrib_analysis_save_dir):
+        print(gene)
+        attrib = attribs[use_gene_idx,:]
+        selected_genes_meta = gene_meta_info.set_index('ensg', drop=False).loc[[gene]]
+        ref_dataset = ReferenceGenomeDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=True)
+        ref_seq = ref_dataset[0][0].numpy()
+        annotated_seqlets =  get_annotated_seqlets(attrib,ref_seq,additional_flanks=additional_flanks,threshold=threshold,motif_database_path=motif_database_path,n_nearest=n_nearest)
+        annotated_seqlets.to_csv(f'{attrib_analysis_save_dir}{gene}.csv')
               
 
 
