@@ -13,7 +13,6 @@ rand_genes=0
 use_manual_job_id=0
 max_epochs=10
 input_len=2000
-manual_job_id=placeholder
 allow_reverse_complement=0
 ref_model_ckpt_path=/gscratch/mostafavilab/aspiro17/personal_genome_res/causal_analysis/epoch=16-step=15000.ckpt
 gene_idx_start=0

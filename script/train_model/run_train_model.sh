@@ -39,7 +39,7 @@ else
     curr_job_id=${SLURM_JOB_ID}
 fi
 
-# run train_model.py with the inputs provided, either in this .sh script or in the .sh script that calls this one 
+# run train_model.py with the inputs provided (provided either in this .sh script or in the .sh script in training_experiment_sh_scripts that calls this one) 
 srun python train_model.py \
     --model_save_dir ${MODEL_SAVE_DIR} \
     --tss_data_path ${TSS_DATA_PATH} \
