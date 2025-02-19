@@ -180,6 +180,7 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
     - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand. 
     - finetuned_weights_dir: String of directory containing 'coef.npy' and 'intercept.npy' used to finetune Enformer predictions. 
     - variant_info_path: String path to DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', and 'alt'. If None, no variant is inserted. 
+    - enformer_input_len: Integer input length to use for dataset to Enformer model. 
     
     Saves: Numpy array of attributions (zero-centered), shape (4, input_len). 
     """
