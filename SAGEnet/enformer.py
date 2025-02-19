@@ -7,14 +7,13 @@ TFHUB_URL = 'https://tfhub.dev/deepmind/enformer/1'
 TRACK_IDX = 4980 # CAGE:brain, adult
 CENTER_BINS = [447,448,449] # three center bins of enformer output
 NUM_TRACKS=5313
-ENFORMER_INPUT_LEN=393216
 
 class Enformer:
     def __init__(self, finetuned_weights_dir='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/enformer_finetuned_weights/'):
         """
-        Load Enformer model from TFHUB_URL, set finetuned weights and intercept, if provided. 
+        Load Enformer model from TFHUB_URL and set finetuned weights and intercept, if provided. 
         Parameters: 
-        - finetuned_weights_dir: String of directory containing 'coef.npy' and 'intercept.npy' to finetune Enformer predictions. 
+        - finetuned_weights_dir: String path to directory containing 'coef.npy' and 'intercept.npy' to fine-tune Enformer predictions. 
         """
         self._model = hub.load(TFHUB_URL).model
         if finetuned_weights_dir: 
@@ -31,7 +30,7 @@ class Enformer:
         - inputs: Tensor of one-hot-encoded sequence of shape [batch_size, 4, input_len] 
         - save_mode: String indicating how Enformer's outputs should be processed. If save_mode=='finetuned', log(predictions+1) from the 3 center bins will be transformed using weights from finetuned_weights_dir and summed to yield a single prediction value. If save_mode=='only_brain', log(predictions+1) from the 3 center bins, track 4980 ('CAGE:brain, adult') will be summed to yield a single prediction value. If save_mode=='all_tracks', prediction values from the center 3 bins from all tracks (shape 3,5313) will be saved. 
         
-        Returns: Enformer predictions for a given batch (single float value for save_mode=='finetuned' and save_mode==only_brain, (3,5313) array for save_mode=='all_tracks'. 
+        Returns: Enformer predictions for a given batch (single float value for save_mode=='finetuned' and save_mode==only_brain, array of shape (3,5313) for save_mode=='all_tracks'). 
         """
         # to work with our datasets: our models takes [batch_size, 4, input_len]  vs. Enformer takes [batch_size, 4, input_len] 
         inputs = inputs.permute(0, 2, 1) 
@@ -59,12 +58,12 @@ class Enformer:
         Get Enformer predictions on ReferenceGenomeDataset or PersonalGenomeDataset
         
         Parameters: 
-        - dataset: ReferenceGenomeDataset or PersonalGenomeDataeset 
+        - dataset: ReferenceGenomeDataset or PersonalGenomeDataeset. 
         - save_mode: String indicating how Enformer's outputs should be processed. If save_mode=='finetuned', log(predictions+1) from the 3 center bins will be transformed using weights from finetuned_weights_dir and summed to yield a single prediction value. If save_mode=='only_brain', log(predictions+1) from the 3 center bins, track 4980 ('CAGE:brain, adult') will be summed to yield a single prediction value. If save_mode=='all_tracks', prediction values from the center 3 bins from all tracks (shape 3,5313) will be saved. 
         - using_personal_dataset: Boolean indicating if PersonalGenomeDataset is being used. If False, assume ReferenceGenomeDataset is being used. 
         - predict_from_personal: Boolean indicating if Enformer should predict from the "personal" sequence input of PersonalGenomeDataset. If not, Enformer predicts from the "reference" sequence input. Only applicable if predict_from_personal==True. 
         
-        Returns: Enformer predictions for the given datset (array of len(dataset) for save_mode=='finetuned' and save_mode==only_brain, array of shape (len(dataset), 3,5313) array for save_mode=='all_tracks'. 
+        Returns: Enformer predictions for the given datset (array of len(dataset) for save_mode=='finetuned' and save_mode=='only_brain', array of shape (len(dataset), 3,5313) array for save_mode=='all_tracks'). 
         """
         
         num_datapoints = len(dataset) 

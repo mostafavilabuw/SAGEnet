@@ -2,8 +2,6 @@ import torch
 from torch.utils.data import Dataset
 import pysam
 import numpy as np
-import pandas as pd
-import time
 import SAGEnet.tools
 
 def onehot_encoding(
@@ -14,7 +12,7 @@ def onehot_encoding(
     neutral_value=0.25,
     dtype=np.float32,
     reverse_complement: bool = False,
-    allow_reverse_complement: bool = True # if this is set to False, the sequence will not be reverse complemented, even if reverse_complement=True
+    allow_reverse_complement: bool = True # if this is set to False, the sequence will not be reverse complemented, even if reverse_complement==True
 ) -> np.ndarray:
     """One-hot encode sequence."""
     sequence=sequence.upper()
@@ -54,9 +52,9 @@ class ReferenceGenomeDataset(Dataset):
         - gene_metadata: DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
         - hg38_file_path: String path to the human genome (hg38) reference file.
         - expr_data: DataFrame with expression data, indexed by gene names, with sample names as columns.
-            This should include all of the samples that we want to use in the mean expression calculation. 
-            If not provided, 0 will be used for expression value. 
-        - input_len: Integer, size of the genomic window model input. 
+            This should include all of the samples to use in the mean expression calculation. 
+            If not provided, 0 will be used as a placeholder expression value. 
+        - input_len: Integer, size of the genomic window for model input. 
         - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand. 
         - single_seq: Boolean, if True, return output of the shape of a ReferenceGenomeDataset datapoint, if False, return output of the shape of a PersonalGenomeDataset datapoint
         - pos_start: Integer, genome position start. If None, set to max(0, tss_pos - self.input_len // 2)
@@ -64,7 +62,6 @@ class ReferenceGenomeDataset(Dataset):
         """
         
         self.gene_metadata = gene_metadata
-        self.hg38_file_path = hg38_file_path
         self.input_len = input_len
         self.expr_data = expr_data
         self.allow_reverse_complement=allow_reverse_complement
@@ -106,7 +103,7 @@ class ReferenceGenomeDataset(Dataset):
         rc=(gene_info['strand']!='+') # reverse complement genes on the negative strand 
         ref_encoded = onehot_encoding(ref_sequence, self.input_len, reverse_complement=rc,allow_reverse_complement=self.allow_reverse_complement)
 
-        # get expression data, if provided. if not, use 0 as placeholder (for example, for evaluation) 
+        # get expression data, if provided. if not, use 0 as placeholder (for example, in model evaluation) 
         if self.expr_data is None: 
             mean_expr=np.array(0)
         else: 
@@ -130,8 +127,7 @@ class ReferenceGenomeDataset(Dataset):
             express_tensor = torch.from_numpy(np.stack((mean_expr, 0), axis=0))
 
             # include placeholder gene_idx, sample_idx 
-            #return all_seq_tensor.float(), express_tensor.float(), 0, 0
-            return all_seq_tensor.float(), express_tensor.float()
+            return all_seq_tensor.float(), express_tensor.float(), 0, 0
 
 
 class VariantDataset(Dataset):
@@ -150,15 +146,15 @@ class VariantDataset(Dataset):
         """
         Initialize the VariantDataset object.
         
-        Insert variant from variant_info into reference sequence. Return input to p-SAGE-net: ref/ref, personal/personal, with the variant inserted into the first personal 
+        Insert variant from variant_info into reference sequence (if insert_variants==True).
 
         Parameters:
         - gene_metadata: DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
         - hg38_file_path: String path to the human genome (hg38) reference file.
-        - variant_info: DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', and 'alt'
-        - input_len: Integer, size of the genomic window model input. 
+        - variant_info: DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', and 'alt'. 
+        - input_len: Integer, size of the genomic window for model input. 
         - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
-        - insert_variants: Boolean, if True, insert variant, if False, do not insert variant (predict on reference sequence) 
+        - insert_variants: Boolean, if True, insert variant, if False, do not insert variant (predict from reference sequence). 
         - single_seq: Boolean, if True, return output of the shape of a ReferenceGenomeDataset datapoint, if False, return output of the shape of a PersonalGenomeDataset datapoint
         - pos_start: Integer, genome position start. If None, set to max(0, tss_pos - self.input_len // 2)
         - pos_end: Integer, genome position start. If None, set to min(self.genome.get_reference_length(f"chr{chr}"), tss_pos + self.input_len // 2)
@@ -199,7 +195,7 @@ class VariantDataset(Dataset):
         variant_alt = variant_info['alt']
         variant_chr = variant_info['chr']
         
-        # use gene in variant info to get gene info 
+        # use gene in variant info to get gene metadata 
         gene_info = self.gene_metadata.loc[variant_gene]
         chr = gene_info["chr"]
         tss_pos = gene_info["tss"]
@@ -294,19 +290,19 @@ class PersonalGenomeDataset(Dataset):
         - gene_metadata: DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
         - hg38_file_path: String path to the human genome (hg38) reference file.
         - expr_data: DataFrame with expression data, indexed by gene names, with sample names as columns.
-            This should include all of the samples that we want to use in the mean expression calculation. 
-            If not provided, 0s will be returned for expression values. 
+            This should include all of the samples to use in the mean expression calculation. 
+            If expr_data is not provided, 0 will be used as a placeholder expression value. 
+        - input_len: Integer, size of the genomic window for model input. 
         - sample_list: List of sample names (as they appear in VCF) to include in dataset 
-        - input_len: Integer, size of the genomic window model input. 
         - vcf_file_path: String path to the VCF file with variant information.
-        - verbose: Boolean flag for verbose output (default: False).
+        - verbose: Boolean flag for verbose output. 
         - contig_prefix: String before chromosome number in VCF file (for, example ROSMAP VCF uses 'chr1', etc.) 
-        - split_expr: Boolean indicating if expression is to be decomposed into mean, difference from mean. If True, idx 1 of the expression output represents difference from mean expression (either z-score or not). If False, idx 1 of the expression output represents personal gene expression. Used to train non-contrastive model. 
-        - unmatched_threshold: Integer number of mismatches between reference allele in VCF and reference in sequecne before RuntimeError.
+        - split_expr: Boolean indicating if expression is to be decomposed into mean and difference from mean. If True, idx 1 of the expression output represents difference from mean expression (either z-score or not). If False, idx 1 of the expression output represents personal gene expression (used to train non-contrastive model). 
+        - unmatched_threshold: Integer number of mismatches between reference allele in VCF and reference in sequence before RuntimeError.
         - expr_data_zscore: DataFrame in the same format as expr_data (indexed by gene names, sample names as columns) with pre calculated zscores. If provided, zscores are used for model output idx 1 instead of (personal expression - mean expression). 
         - train_subs: List of training individuals (to be used for calculating mean expression and MAF). If not provided, train_subs is set to sample_list. 
         - only_snps: Boolean indicating if only SNPs should be inserted or if all variants (including indels) should be inserted. 
-        - maf_threshold: Float indicating the minimum MAF for a variant to be inserted. If less than zero, all variants will be inserted. 
+        - maf_threshold: Float indicating the threshold MAF for a variant to be inserted. If less than zero, all variants will be inserted. 
         - train_subs_vcf_file_path: String path to the VCF file for train_subs. If not provided, train_subs_vcf_file_path is set to vcf_file_path. 
         - train_subs_expr_data: DataFrame with expression data for train_subs. If not provided, train_subs_expr_data is set to expr_data. 
         - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
@@ -363,7 +359,7 @@ class PersonalGenomeDataset(Dataset):
         """
         Retrieve and process data for a specific gene-sample pair by index.
         Returns:
-        - Tuple containing (reference sequence,personal sequence), (mean expression, difference from mean expression), gene_idx, sample_idx 
+        Tuple containing (reference sequence,personal sequence), (mean expression, difference from mean expression), gene_idx, sample_idx 
         """
         # calculate gene and sample index
         gene_idx = idx // self.n_samples
@@ -392,7 +388,7 @@ class PersonalGenomeDataset(Dataset):
             mean_expr = np.array(self.train_subs_expr_data.loc[gene_info["ensg"],self.train_subs].mean())
 
             if self.expr_data_zscore is not None and not self.split_expr: 
-                raise ValueError(f"zcore expression data is provided but self.split_expr=False. zscore data will not be used")
+                raise ValueError(f"zcore expression data is provided but self.split_expr==False. zscore data will not be used")
 
             curr_expr_data = np.array(
                     self.expr_data.loc[gene_info["ensg"]][sample_of_interest])
@@ -434,7 +430,7 @@ class PersonalGenomeDataset(Dataset):
         
     def process_gene_variants(self, gene_info, sample_of_interest):
         """
-        Process gene variants using pre-loaded VCF and reference genome data.
+        Process gene variants using pre-loaded VCF and reference genome data. Returns tuple containing maternal sequence, paternal sequence, and reference sequence. 
         """        
         chr = gene_info["chr"]
         tss_pos = gene_info["tss"]
@@ -442,16 +438,15 @@ class PersonalGenomeDataset(Dataset):
         pos_end = min(self.genome.get_reference_length(f"chr{chr}"), tss_pos + self.input_len // 2)
     
         records_list = SAGEnet.tools.get_records_list(chr, pos_start, pos_end, contig_prefix=self.contig_prefix,vcf_file_path=self.vcf_file_path,hg38_file_path=self.hg38_file_path)
-    
         vcf_of_sample = [record for record in records_list if record.samples[sample_of_interest]["GT"] != (0, 0) and record.samples[sample_of_interest]["GT"] != (None, None)]             
         sequence = self.genome.fetch(f"chr{chr}", pos_start, pos_end)
         return self.modify_sequences_based_on_vcf(sequence, vcf_of_sample, sample_of_interest, pos_start), sequence
 
     
     def modify_sequences_based_on_vcf(
-        self, sequence, vcf_of_sample, sample_of_interest, test_start):
+        self, sequence, vcf_of_sample, sample_of_interest, seq_start):
         """
-        Modifies maternal and paternal DNA sequences based on variant information.
+        Modifies maternal and paternal DNA sequences based on variant information. Returns tuple containing maternal sequence and paternal sequence. 
         """
         maternal_sequence = paternal_sequence = sequence.upper()
         maternal_shift = paternal_shift = 0
@@ -461,7 +456,7 @@ class PersonalGenomeDataset(Dataset):
             unmatched_count=0
             for idx, seq in enumerate([maternal_sequence, paternal_sequence]):
                 shift = maternal_shift if idx == 0 else paternal_shift
-                position = record.pos - test_start + shift - 1
+                position = record.pos - seq_start + shift - 1
                 ref_allele = record.ref.upper()
 
                 if GT[idx]==None: # genotype is missing/unknown due to tech issues

@@ -2,24 +2,24 @@ import numpy as np
 import os
 import pysam
 import pandas as pd
-#from SAGEnet.models import rSAGEnet
+from sklearn.decomposition import PCA
+from SAGEnet.models import rSAGEnet
 
 def get_pos_idx_in_seq(gene, pos,tss_data_path='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/data/ROSMAP/expressionData/gene-ids-and-positions.tsv',input_len=40000,allow_reverse_complement=True):
     """
-    Get given a gene and a position, determine the index of the given position in the sequence from PersonalGenomeDataset, ReferenceDataset, or VariantDataset. 
+    Given a gene and a position in that gene, determine the index of the given position in the sequence (from PersonalGenomeDataset, ReferenceDataset, or VariantDataset). 
     
     Parameters: 
     - gene: String gene ENSG id. 
     - pos: Integer position in the gene.
     - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
-     - input_len: Integer, size of the genomic window model input. 
+    - input_len: Integer, size of the genomic window for model input. 
     - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
     
     Returns: integer position index of position in sequence. 
     """
     gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
     gene_info = gene_meta_info[gene_meta_info['gene_id']==gene].iloc[0]
-    chr = gene_info["chr"]
     tss_pos = gene_info["tss"]
     pos_start = max(0, tss_pos - input_len // 2)
     pos_idx = pos-pos_start
@@ -34,7 +34,7 @@ def get_pos_idx_in_seq(gene, pos,tss_data_path='/homes/gws/aspiro17/seqtoexp/Per
 def select_gene_set(predixcan_res_path, rand_genes, top_genes_to_consider=5000,seed=42, num_genes=1000,gene_idx_start=0): 
     """
     Select gene set, either based on prediXcan ranking or randomly. 
-    - predixcan_res_path: String path to predixcan results path, to be used to construct ranked gene sets. 
+    - predixcan_res_path: String path to prediXcan results path, to be used to construct ranked gene sets. 
     - rand_genes: Boolean indicating whether or not to randomly select genes (from top_genes_to_consider gene set) to use in model evaluation. If False, select gene set from top-prediXcan ranked genes. 
     - top_genes_to_consider: Integer, length of prediXcan-ranked top gene set to consider when randomly selecting genes (only relevant if rand_genes==True). 
     - seed: Integer seed to determine random shuffling of gene set. 
@@ -74,7 +74,7 @@ def get_pcs(X,num_pcs):
     mean_vals = X.mean()
     std_vals = X.std()
     X_standardized = (X - mean_vals) / std_vals
-    X_standardized = X_standardized.fillna(0) # for not expressed genes where std is 0 
+    X_standardized = X_standardized.fillna(0) # for genes where std is 0 
     pca = PCA(n_components=num_pcs)
     prcomp_result = pca.fit_transform(X_standardized)
     pca_df = pd.DataFrame(data=prcomp_result, index=X.index)
@@ -83,7 +83,7 @@ def get_pcs(X,num_pcs):
 
 def gtf2df(gtf: str) -> pd.DataFrame:
     """
-    Process gencode gtf file into Dataframe.  
+    Given string path to gencode gtf file, return Dataframe containing infomation in the gtf file.  
     """
     df = pd.read_csv(gtf, sep='\t', header=None, comment='#')
     df.columns = ['seqname', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
@@ -101,11 +101,11 @@ def init_model_from_ref(model, weights_to_load_model_ckpt_path):
     
     Parameters:
     - model: Model of class pSAGEnet or rSAGEnet. 
-    - weights_to_load_model_ckpt_path: String to path of model ckpt to use weights from (that model is of class pSAGEnet or rSAGEnet). 
+    - weights_to_load_model_ckpt_path: String to path of rSAGEnet model ckpt to use weights from. 
     
     Returns: Model with weights loaded into layers in conv0, convlayers, dilated_convlayers. 
     """
-    ref_model = rSAGEnet.load_from_checkpoint(ref_ckpt_path)
+    ref_model = rSAGEnet.load_from_checkpoint(weights_to_load_model_ckpt_path)
     model.conv0.load_state_dict(ref_model.conv0.state_dict())
     for i in range(len(model.convlayers)):
         model.convlayers[i].load_state_dict(ref_model.convlayers[i].state_dict())
@@ -132,7 +132,7 @@ def get_records_list(chr,pos_start,pos_end,contig_prefix,vcf_file_path='/data/mo
          pysam.FastaFile(hg38_file_path) as genome:
         pos_start=max(0,pos_start)
         pos_end = min(genome.get_reference_length(f"chr{chr}"), pos_end)
-        vcf_chr = "23" if chr in {'X', 'Y'} and contig_prefix == '' else str(chr)
+        vcf_chr = "23" if chr in {'X', 'Y'} and contig_prefix == '' else str(chr) # adjust chr label for ROSMAP VCF
         records_list = list(vcf_data.fetch(contig_prefix + str(vcf_chr), pos_start, pos_end))
         return records_list
 
@@ -142,22 +142,22 @@ def get_variant_info(chr, pos_start,pos_end, subs_list,contig_prefix='',vcf_file
     Gets all variant information (filtered by MAF) within a specified genomic region.
     
     Parameters:
-      - chr: String chromosome identifier (e.g., '1', 'X').
+    - chr: String chromosome identifier (e.g., '1', 'X').
     - pos_start: Int genomic start position. 
     - pos_end: Int genomic end position. 
     - contig_prefix: Prefix for chromosome names in the VCF file (e.g., "chr" or "").
     - vcf_file_path : String Path to the VCF file. 
     - hg38_file_path : String path to the reference genome FASTA file.
     - maf_threshold: Float MAF threshold (only include variants with MAF>maf_threshold)
-    - train_subs_vcf_path: String path to VCF containing genotype data for the list of individuals we are using to calculate MAF. If None, set to vcf_file_path. 
-    - train_subs: List of strings giving individual sample IDs for individuals used to calculate MAF. If None, set to subs_list 
-    - train_subs_contig_prefix: String before chromosome number in VCF file (for, example ROSMAP VCF uses 'chr1', etc.) in the set of individuals used to calculate MAF. 
+    - train_subs_vcf_path: String path to VCF containing genotype data for the list of individuals to be used to calculate MAF. If None, set to vcf_file_path. 
+    - train_subs: List of (string) individual sample IDs for individuals used to calculate MAF. If None, set to subs_list 
+    - train_subs_contig_prefix: String before chromosome number in VCF file (e.g., "chr" or "") in the set of individuals used to calculate MAF. By default, set to "" (ROSMAP contig prefix).
     
     Returns: 
-    all_features: Numpy array of variant data of shape (num subs, num features). Each entry is 0, 1, or 2. 
-    pos: List of integer genomic positions of variants within region. 
-    ref: List of string reference allele values of variants within region. 
-    alt: List of string alt allele values of variants within region. 
+    all_features: Numpy array of variant data of shape (num_subs, num_features). Each entry is 0, 1, or 2. 
+    pos: List of integer genomic positions of variants within region (length len(num_features)). 
+    ref: List of string reference allele values of variants within region (length len(num_features)). 
+    alt: List of string alt allele values of variants within region (length len(num_features)). 
     
     If no variants exist given the specifications, all_features, pos, ref, alt will all be empty lists. 
     """
@@ -182,13 +182,13 @@ def get_variant_info(chr, pos_start,pos_end, subs_list,contig_prefix='',vcf_file
                     feature_info.append(record.samples[sample]["GT"].count(feature_idx))
                 all_features.append(feature_info)
     if len(all_features)>0: 
-        all_features = np.vstack(all_features).T # (num subs x num features)
+        all_features = np.vstack(all_features).T # (num_subs x num_features)
     return all_features, pos, ref, alt
 
 
 def calc_maf(record, record_allele_idx, train_subs_vcf_path, train_subs, train_subs_contig_prefix=''): 
     """
-    Calculate the minor allele frequency (MAF) for a given variant and alternative allele index within a list of individuals. 
+    Calculate the minor allele frequency (MAF) for a given variant and alternative allele index for a list of individuals. 
 
     Parameters: 
     - record: pysam.VariantRecord containing variant information.  
@@ -199,8 +199,8 @@ def calc_maf(record, record_allele_idx, train_subs_vcf_path, train_subs, train_s
       ```
     - record_allele_idx: Integer index of the alternative allele in "GT" (1 or higher).  
     - train_subs_vcf_path: String path to VCF containing genotype data for the list of individuals we are using to calculate MAF. 
-    - train_subs: List of strings giving individual sample IDs for individuals used to calculate MAF. 
-    - train_subs_contig_prefix: String before chromosome number in VCF file (for, example ROSMAP VCF uses 'chr1', etc.) in the set of individuals used to calculate MAF. 
+    - train_subs: List of (string) individual sample IDs for individuals used to calculate MAF.
+    - train_subs_contig_prefix: String before chromosome number in VCF file (e.g., "chr" or "") in the set of individuals used to calculate MAF. By default, set to "" (ROSMAP contig prefix).
 
     Returns: Float, the minor allele frequency (MAF) of the specified allele in the provided individuals (returns 0 if the allele is not found in the reference population). 
     """
@@ -211,13 +211,13 @@ def calc_maf(record, record_allele_idx, train_subs_vcf_path, train_subs, train_s
             train_subs_chrom = record.chrom.split('r')[1] # remove 'chr' for searching VCF
     else: 
         train_subs_chrom=record.chrom  
-    train_subs_chrom = "23" if train_subs_chrom in {'X', 'Y'} and contig_prefix == '' else str(train_subs_chrom)
+    train_subs_chrom = "23" if train_subs_chrom in {'X', 'Y'} and train_subs_contig_prefix == '' else str(train_subs_chrom)
 
     train_subs_genotypes = []
     train_subs_records = [record for record in train_subs_vcf.fetch(train_subs_chrom, record.pos-1, record.pos)]    
     maf=0 # initialize
+    # check if the record we are looking for exists in this VCF, these individuals  
     if len(train_subs_records)>0:
-        # check if the record we are looking for exists in this VCF, these individuals  
         for train_subs_record in train_subs_records: 
             if train_subs_record.pos==record.pos and train_subs_record.ref==record.ref and train_subs_record.alts[record_allele_idx-1]==record.alts[record_allele_idx-1]:
                 matching_record = train_subs_record
@@ -258,8 +258,10 @@ def get_train_val_test_genes(gene_list,tss_data_path='/homes/gws/aspiro17/seqtoe
     Parameters: 
     - gene_list: List of gene_ids 
     - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr' and 'gene'. 
+    - use_enformer_gene_assignments: Boolean, whether to use gene splits from enformer_gene_assignments_path (or based on chromosome).
+    - enformer_gene_assignments_path: String path to DataFrame containing Enformer gene split assignments. Only relevant if use_enformer_gene_assignments==True. 
 
-    Returns: Tuple of numpy arrays for train, validation, and test genes 
+    Returns: Tuple of numpy arrays containing train, validation, and test genes 
     """
     if use_enformer_gene_assignments: 
         print('selecting train/val/test gene sets based on enformer gene sets')
@@ -288,7 +290,7 @@ def select_ckpt_path(ckpt_dir,max_epochs=10,best_ckpt_metric='train_gene_gene'):
     Paramters: 
     ckpt_dir: String of directory containing model ckpts and csv files with model metrics. 
     max_epochs: Max epoch of model training to consider when selecting best ckpt. 
-    best_ckpt_metric: Metric used to select best model. Can be one of {'train_gene_gene', 'train_gene_sample', 'val_gene_gene', 'val_gene_sample'}
+    best_ckpt_metric: Metric used to select best model. Can be one of {'train_gene_gene', 'train_gene_sample', 'val_gene_gene', 'val_gene_sample'}. 
     
     Returns: String of ckpt path of best model 
     """
@@ -296,24 +298,23 @@ def select_ckpt_path(ckpt_dir,max_epochs=10,best_ckpt_metric='train_gene_gene'):
     model_corrs = []
     for epoch in range(max_epochs): 
         corr_filename = f'epoch={epoch}_{best_ckpt_metric}_corrs.csv'
-        if corr_filename in os.listdir(ckpt_dir): 
-            epoch_corr_info = pd.read_csv(f'{ckpt_dir}{corr_filename}',index_col=0)
-            model_corrs.append(epoch_corr_info['Correlation'].median())
+        epoch_corr_info = pd.read_csv(f'{ckpt_dir}{corr_filename}',index_col=0)
+        model_corrs.append(epoch_corr_info['Correlation'].median())
     best_epoch = np.argmax(model_corrs)
     print(f'best epoch:{best_epoch}')
     ckpt_path = f'{ckpt_dir}epoch={best_epoch}.ckpt'
     return ckpt_path
 
 
-def mean_center_attributions(attributions,axis=1):
+def zero_center_attributions(attributions,axis=1):
     """
-    Mean center attributions by subtracting the mean from each position. 
+    Zero-center attributions by subtracting the mean from each position. 
     
     Paramters: 
-    - attributions: Numpy array with model attributions (one value per base pair per position, for ex from ISM or gradients). 
+    - attributions: Numpy array with model attributions (one value per base pair per position, for ex from ISM or gradient). 
     - axis: Axis along which to take mean, should correspond to taking the mean across the 4 base pairs. 
     
-    Returns: Numpy array of mean-centered attributions. 
+    Returns: Numpy array of zero-centered attributions. 
     """
     print(f'attributions.shape:{attributions.shape}')
     mean = np.mean(attributions, axis=axis, keepdims=True)  

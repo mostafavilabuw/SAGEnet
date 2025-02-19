@@ -1,14 +1,13 @@
 import argparse
 import pandas as pd
 import numpy as np
-import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
-from SAGEnet.data import ReferenceGenomeDataset,PersonalGenomeDataset
-from SAGEnet.models import rSAGEnet,pSAGEnet
-from SAGEnet.tools import init_model_from_ref, get_train_val_test_genes
+from SAGEnet.data import PersonalGenomeDataset
+from SAGEnet.models import pSAGEnet
+import SAGEnet.tools
 import glob
 import os
 
@@ -25,7 +24,7 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     - sub_data_dir: String path to directory containing lists of individual train/validation/test splits. 
     - hg38_file_path: String path to the human genome (hg38) reference file.
     - vcf_file_path: String path to the VCF file with variant information.
-    - wandb_project: String WANDB project name 
+    - wandb_project: String WANDB project name. 
     - start_from_ref: Boolean indicating whether or not to initialize pSAGEnet model by loading in rSAGEnet weights. 
     - ref_model_ckpt_path: String path to rSAGEnet model to use to initialize pSAGEnet model. 
     - num_nodes: Integer number of nodes to use in model training. 
@@ -35,8 +34,8 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     - max_epochs: Integer, maximum number of training epochs. 
     - wandb_job_name: String, WANDB job name. 
     - device: Integer, GPU index. 
-    - lam_diff: Float, weight on "difference" component of loss function (idx 1) 
-    - lam_ref: Float, weight on "mean" component of loss function (idx 0) 
+    - lam_diff: Float, weight on "difference" component of loss function (idx 1).  
+    - lam_ref: Float, weight on "mean" component of loss function (idx 0). 
     - zscore: Boolean, whether to use zscore for model idx 1 output (instead of difference from mean). 
     - predixcan_res_path: String path to predixcan results path, to be used to construct ranked gene sets. 
     - num_top_train_genes: Integer gene set size from which to select train genes. 
@@ -50,12 +49,12 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     - top_genes_to_consider: Integer, length of prediXcan-ranked top gene set to consider when randomly selecting genes (only relevant if rand_genes==True). 
     - maf_threshold: Float, MAF threshold to use in training. 
     - gene_idx_start: Integer index in prediXcan-ranked gene list of first gene to use in model training. 
-    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
-    - block_type: String block type for the lowest resolution block ("mamba", "transformer", or "conv")
-    - first_layer_kernel_number: Integer n input channels for the first convolutional layer 
-    - int_layers_kernel_number: Integer n input & output channels for all convolutional layers after the first 
-    - hidden_size: Integer number of nodes in fully connected layers 
-    - h_layers: Integer n hidden layers 
+    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand.  
+    - block_type: String block type for the lowest resolution block ("mamba", "transformer", or "conv"). 
+    - first_layer_kernel_number: Integer n input channels for the first convolutional layer. 
+    - int_layers_kernel_number: Integer n input & output channels for all convolutional layers after the first. 
+    - hidden_size: Integer number of nodes in fully connected layers.  
+    - h_layers: Integer n hidden layers.  
     """
     model_save_dir=f'{model_save_dir}{wandb_job_name}'
     print(f'creating dir {model_save_dir}')
@@ -65,7 +64,7 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     train_subs = np.loadtxt(sub_data_dir + 'train_subs.csv',delimiter=',',dtype=str)
     val_subs = np.loadtxt(sub_data_dir + 'val_subs.csv',delimiter=',',dtype=str)
     sel_train_subs=train_subs[:num_training_subs]
-    print(f'num train subs={len(train_subs)}')
+    print(f'num train subs={len(sel_train_subs)}')
     print(f'num val subs={len(val_subs)}')
     expr_data = pd.read_csv(expr_data_path, index_col=0)
     
@@ -78,8 +77,8 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     val_gene_list = np.array([gene for gene in val_gene_list if gene in expr_data.index])
     
     # split train and validation gene lists by chromosome 
-    train_gene_list, _ , _ = get_train_val_test_genes(train_gene_list, tss_data_path=tss_data_path)
-    _, val_gene_list, _ = get_train_val_test_genes(val_gene_list, tss_data_path=tss_data_path)
+    train_gene_list, _ , _ = SAGEnet.tools.get_train_val_test_genes(train_gene_list, tss_data_path=tss_data_path)
+    _, val_gene_list, _ = SAGEnet.tools.get_train_val_test_genes(val_gene_list, tss_data_path=tss_data_path)
 
     gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
     train_gene_meta=gene_meta_info[gene_meta_info['ensg'].isin(train_gene_list)]
@@ -170,7 +169,7 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
         
     if start_from_ref: 
         print(f'loading rSAGEnet weights from {ref_model_ckpt_path} into pSAGEnet model')
-        my_model = init_model_from_ref(my_model, ref_model_ckpt_path)
+        my_model = SAGEnet.tools.init_model_from_ref(my_model, ref_model_ckpt_path)
           
     wandb_logger.watch(my_model)
     if last_checkpoint is None:

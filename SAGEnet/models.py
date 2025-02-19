@@ -3,15 +3,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
+import torch.optim 
 import pandas as pd
-import os
 import scipy.stats
-from SAGEnet.nn import ConvBlock, MambaBlock, TransformerBlock, Residual, CrossAttention
-from pytorch_lightning.callbacks import BasePredictionWriter
+from SAGEnet.nn import ConvBlock, MambaBlock, TransformerBlock, Residual
 import pytorch_lightning as pl
-
-
 
 def calculate_correlations(self, outputs):
     """
@@ -51,7 +47,6 @@ def calculate_correlations(self, outputs):
         temp_samples.append(sample_idx.cpu().numpy())
 
     # Concatenate lists of arrays into single arrays
-
     all_preds = np.concatenate(temp_preds)
     all_actuals = np.concatenate(temp_actuals)
     all_genes = np.concatenate(temp_genes)
@@ -122,7 +117,7 @@ def reshape_collected_data(data):
 
 class Base(pl.LightningModule):
     """
-    Base model class used in pSAGEnet and rSAGEnet
+    Base model class used in pSAGEnet and rSAGEnet. 
     """
     def __init__(self):
         super().__init__()
@@ -132,10 +127,7 @@ class Base(pl.LightningModule):
         return NotImplementedError
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        return loss
+        return NotImplementedError
 
     def validation_step(self, batch, batch_idx):
         return NotImplementedError
@@ -197,29 +189,29 @@ class rSAGEnet(Base):
         using_personal_dataset=False
     ):
         """
-        Initialize rSAGEnet
+        Initialize rSAGEnet. 
 
         Parameters:
-        - input_length: Integer input window size 
-        - first_layer_kernel_number: Integer n input channels for the first convolutional layer 
-        - int_layers_kernel_number: Integer n input & output channels for all convolutional layers after the first 
-        - first_layer_kernel_size: Integer kernel size for the first convolutional layer 
-        - int_layers_kernel_size: Integer kernel size for all convolutional layers after the first 
-        - hidden_size: Integer number of nodes in fully connected layers 
-        - learning_rate: Float
-        - n_conv_blocks: Integer n convolutional blocks (residual (convolutional layer, activation) and pooling layers with dilation=1 
-        - n_dilated_conv_blocks: Integer n convolutional blocks and pooling layers with dilation increasing exponentially  
-        - h_layers: Integer n hidden layers 
-        - pooling_size: Integer pooling kernel size
-        - pooling_type: String pooling type ("max" or "avg")
-        - batch_norm: Boolean, whether to add batch normalization at the beginning of each convolutional block 
-        - padding: String, padding type in convoluational layers 
-        - scheduler: String learning rate scheduler 
-        - dropout: Float, dropout in fully connected layers 
-        - block_type: String block type for the lowest resolution block ("mamba", "transformer", or "conv")
-        - increasing_dilation: Boolean, whether or not to exponentially increase dilation in dilated_conv_layers (or keep at 2) 
+        - input_length: Integer input window size.  
+        - first_layer_kernel_number: Integer n input channels for the first convolutional layer. 
+        - int_layers_kernel_number: Integer n input & output channels for all convolutional layers after the first.  
+        - first_layer_kernel_size: Integer kernel size for the first convolutional layer. 
+        - int_layers_kernel_size: Integer kernel size for all convolutional layers after the first.  
+        - hidden_size: Integer number of nodes in fully connected layers.  
+        - learning_rate: Float learning rate. 
+        - n_conv_blocks: Integer number of convolutional blocks (convolutional layer, activation) with dilation=1. 
+        - n_dilated_conv_blocks: Integer number of convolutional blocks with dilation!=1. 
+        - h_layers: Integer n hidden layers.  
+        - pooling_size: Integer pooling kernel size. 
+        - pooling_type: String pooling type ("max" or "avg"). 
+        - batch_norm: Boolean, whether to add batch normalization at the beginning of each convolutional block.  
+        - padding: String, padding type in convoluational layers. 
+        - scheduler: String learning rate scheduler.  
+        - dropout: Float, dropout in fully connected layers.  
+        - block_type: String block type for the lowest resolution block ("mamba", "transformer", or "conv"). 
+        - increasing_dilation: Boolean, whether or not to exponentially increase dilation in dilated_conv_layers (or keep at 2).  
         - predict_from_personal: If True, model predicts from the "personal" sequence component of the PersonalGenomeDataset, if False, model predicts from the "reference" sequence component. Only relevant if using_personal_dataset==True. 
-        - using_personal_dataset: If True, model expects PersonalGenomeDataset, if False, model expects ReferenceGenomeDataset
+        - using_personal_dataset: If True, model expects PersonalGenomeDataset, if False, model expects ReferenceGenomeDataset. 
         """
         
         super().__init__()
@@ -457,31 +449,30 @@ class pSAGEnet(Base):
         split_expr=True
     ):
         """
-        Initialize pSAGEnet
+        Initialize pSAGEnet. 
 
         Parameters:
         - input_length: Integer input window size 
-        - first_layer_kernel_number: Integer n input channels for the first convolutional layer 
-        - int_layers_kernel_number: Integer n input & output channels for all convolutional layers after the first 
-        - first_layer_kernel_size: Integer kernel size for the first convolutional layer 
-        - int_layers_kernel_size: Integer kernel size for all convolutional layers after the first 
-        - hidden_size: Integer number of nodes in fully connected layers 
-        - learning_rate: Float
-        - n_conv_blocks: Integer n convolutional blocks (residual (convolutional layer, activation) and pooling layers with dilation=1 
-        - n_dilated_conv_blocks: Integer n convolutional blocks and pooling layers with dilation increasing exponentially  
-        - h_layers: Integer n hidden layers 
-        - pooling_size: Integer pooling kernel size
-        - pooling_type: String pooling type ("max" or "avg")
-        - batch_norm: Boolean, whether to add batch normalization at the beginning of each convolutional block 
-        - padding: String, padding type in convoluational layers 
-        - scheduler: String learning rate scheduler 
-        - dropout: Float, dropout in fully connected layers 
-        - block_type: String block type for the lowest resolution block ("mamba", "transformer", or "conv")
-        - increasing_dilation: Boolean, whether or not to exponentially increase dilation in dilated_conv_layers (or keep at 2) 
-        - lam_dff: Float, weight on "difference" component of loss function (idx 1) 
-        - lam_ref: Float, weight on "mean" component of loss function (idx 0) 
-        - split_expr: Boolean, if True, model "difference" output (idx 1) is predicted straight from personal sequence (no intermediate subtraction with reference) 
-
+        - first_layer_kernel_number: Integer n input channels for the first convolutional layer. 
+        - int_layers_kernel_number: Integer n input & output channels for all convolutional layers after the first. 
+        - first_layer_kernel_size: Integer kernel size for the first convolutional layer.
+        - int_layers_kernel_size: Integer kernel size for all convolutional layers after the first. 
+        - hidden_size: Integer number of nodes in fully connected layers. 
+        - learning_rate: Float learning rate. 
+        - n_conv_blocks: Integer number of convolutional blocks (convolutional layer, activation) with dilation=1. 
+        - n_dilated_conv_blocks: Integer number of convolutional blocks with dilation!=1. 
+        - h_layers: Integer n hidden layers.  
+        - pooling_size: Integer pooling kernel size. 
+        - pooling_type: String pooling type ("max" or "avg"). 
+        - batch_norm: Boolean, whether to add batch normalization at the beginning of each convolutional block. 
+        - padding: String, padding type in convoluational layers.  
+        - scheduler: String learning rate scheduler.  
+        - dropout: Float, dropout in fully connected layers.  
+        - block_type: String block type for the lowest resolution block ("mamba", "transformer", or "conv"). 
+        - increasing_dilation: Boolean, whether or not to exponentially increase dilation in dilated_conv_layers (or keep at 2).  
+        - lam_dff: Float, weight on "difference" component of loss function (idx 1).  
+        - lam_ref: Float, weight on "mean" component of loss function (idx 0).  
+        - split_expr: Boolean, if True, model "difference" output (idx 1) is predicted straight from personal sequence (no intermediate subtraction with reference).  
         - start_from_ref: Boolean, whether model was initialized with weights from r-SAGE-net (for tracking model runs with wandb). 
         - num_top_train_genes: Integer gene set size from which to select train genes (for tracking model runs with wandb). 
         - num_top_val_genes: Integer gene set size from which to select validation genes (for tracking model runs with wandb). 
@@ -639,7 +630,6 @@ class pSAGEnet(Base):
         ref_x = self.fc0(ref_x)
         personal_x = self.fc0(personal_x)
 
-        
         if self.split_expr: 
             diff_x = ref_x - personal_x
         else: 

@@ -2,34 +2,31 @@ import numpy as np
 import pandas as pd 
 import argparse
 import os
-from SAGEnet.data import ReferenceGenomeDataset, VariantDataset
-import SAGEnet.tools
 import torch
 import logging
-import matplotlib.pyplot as plt
+import tangermeme.io
+import tangermeme.seqlet
+import tangermeme.annotate
+import SAGEnet.tools
+from SAGEnet.data import ReferenceGenomeDataset, VariantDataset
+from SAGEnet.enformer import Enformer
+from SAGEnet.models import pSAGEnet,rSAGEnet
+
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger("numba").setLevel(logging.WARNING)
 
-from SAGEnet.models import pSAGEnet,rSAGEnet
-import tangermeme.plot
-from tangermeme.seqlet import recursive_seqlets
-from tangermeme.annotate import annotate_seqlets
-from SAGEnet.enformer import Enformer
-
-ENFORMER_INPUT_LEN=393216
-
 def summarize_seqlet_annotations(results_save_dir,gene_list,motif_match_threshold=0.05,motif_database_path='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme',seqlet_threshold=None):
     """
-    Given a directory containing per-gene files of seqlets and annotations, summarize across genes. 
+    Given a directory containing per-gene files of seqlets and annotations, summarize these reuslts across genes. 
     
     Paramters: 
     - results_save_dir: String path to directory containing per-gene seqlet annotations. 
     - gene_list: List of genes (as strings) for which to summarize seqlet annotations. 
-    - motif_match_threshold: Float threshold for motif matches to seqlets. 
+    - motif_match_threshold: Float threshold for match between seqlets and motifs from database. 
     - motif_database_path: String path to motif database in .meme format used to annotate seqlets. 
-    - seqlet_threshold: Float threshold for seqlet identification. If None, all seqlets in annotation dataframes are considered. 
+    - seqlet_threshold: Float threshold for seqlet identification. If None, all seqlets in annotation dataframes are used. 
     
-    Returns: lists of across-gene summaries for both all seqlets and seqlets that significantly match to a known motif. 
+    Returns: lists of across-gene summaries for all seqlets and all seqlets that match below motif_match_threshold to a known motif. 
     """
         
     motifs = tangermeme.io.read_meme(motif_database_path)
@@ -48,7 +45,7 @@ def summarize_seqlet_annotations(results_save_dir,gene_list,motif_match_threshol
         if len(res)>0: 
             if seqlet_threshold is not None: 
                 res=res[res['p-value']<seqlet_threshold]
-            res['corrected_pvals'] = res['match_rank_0_pval'] * len(res) * len(motif_names)
+            res['corrected_pvals'] = res['match_rank_0_pval'] * len(res) * len(motif_names) # Bonferroni correction 
             signif_res = res[res['corrected_pvals']<motif_match_threshold]
             num_seqlets+=len(res)
             signif_match_num_seqlets+=len(signif_res)
@@ -65,8 +62,8 @@ def summarize_seqlet_annotations(results_save_dir,gene_list,motif_match_threshol
 
 def save_ref_seq_gradients(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_path,device,input_len,model_type,predixcan_res_path,best_ckpt_metric,max_epochs,identify_best_ckpt,rand_genes,top_genes_to_consider,seed,allow_reverse_complement,gene_idx_start):
     """
-    Save gradients for model (pSAGEnet or rSAGEnet) evaluated on WGS data. 
-    If model is pSAGEnet, only save gradients for personal seq input, model idx 1 output and reference seq input, model 0 output. 
+    Save gradients for model (pSAGEnet or rSAGEnet) evaluated on reference sequence. 
+    If model is pSAGEnet, save gradients for (personal seq input, model idx 1 output) and (reference seq input, model 0 output). 
     
     Parameters: 
     - ckpt_path: String path to either model ckpt to evaluate (if identify_best_ckpt==False) or directory containing model ckpt (if identify_best_ckpt==True). 
@@ -75,19 +72,19 @@ def save_ref_seq_gradients(ckpt_path, results_save_dir, num_genes, tss_data_path
     - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
     - hg38_file_path: String path to the human genome (hg38) reference file.
     - device: Integer, GPU index. 
-    - input_len: Integer, size of the genomic window model input. 
+    - input_len: Integer, size of the genomic window for model input. 
     - model_type: String type of model to evaluate, from {'psagenet', 'rsagenet'}. 
-    - predixcan_res_path: String path to predixcan results path, to be used to construct ranked gene sets. 
-    - best_ckpt_metric: Metric used to select best model from ckpt dir, (if identify_best_ckpt==True). Can be one of {'train_gene_gene', 'train_gene_sample', 'val_gene_gene', 'val_gene_sample'}
+    - predixcan_res_path: String path to predixcan results DataFrame, to be used to construct ranked gene sets. Must contain the column "val_pearson". 
+    - best_ckpt_metric: Metric used to select best model from ckpt dir, if identify_best_ckpt==True. Can be one of {'train_gene_gene', 'train_gene_sample', 'val_gene_gene', 'val_gene_sample'}. 
     - rand_genes: Boolean indicating whether or not to randomly select genes (from top_genes_to_consider gene set) to use in model evaluation. If False, select gene set from top-prediXcan ranked genes. 
     - top_genes_to_consider: Integer, length of prediXcan-ranked top gene set to consider when randomly selecting genes (only relevant if rand_genes==True). 
     - seed: Integer seed to determine random shuffling of gene set. 
     - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
     - gene_idx_start: Integer index in prediXcan-ranked gene list of first gene to use in model evaluation.
-    - max_epochs: Integer, maximum number of epochs to consider when selecting best model ckpt. 
-    - identify_best_ckpt: Boolean, whether or not to use best_ckpt_metric to select best model ckpt within ckpt_path. If False, best model ckpt path is assumed to be the path given by ckpt_path. 
+    - max_epochs: Integer, maximum number of epochs to consider when selecting best model ckpt. Only relevant if identify_best_ckpt==True. 
+    - identify_best_ckpt: Boolean, whether or not to use best_ckpt_metric to select best model ckpt within ckpt_path. If False, ckpt_path is used as best model ckpt path. 
     
-    Saves: Numpy array of (centered) gradients of shape (num_genes, 4, seq_len). 
+    Saves: Numpy array of (zero-centered) gradients of shape (num_genes, 4, input_len). 
     """
     # load model 
     model_type=model_type.lower()
@@ -95,7 +92,6 @@ def save_ref_seq_gradients(ckpt_path, results_save_dir, num_genes, tss_data_path
     # identify best ckpt from directory based on metric provided 
     if identify_best_ckpt:
         ckpt_path = SAGEnet.tools.select_ckpt_path(ckpt_path,max_epochs=max_epochs,best_ckpt_metric=best_ckpt_metric)
-    ckpt_label = ckpt_path.split('/')[-1]
     
     if model_type=='rsagenet':
         print('rsagenet model')
@@ -131,7 +127,8 @@ def save_ref_seq_gradients(ckpt_path, results_save_dir, num_genes, tss_data_path
 
     dataset = ReferenceGenomeDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq)
 
-    for i, (x, y) in enumerate(dataset):
+    for i, data in enumerate(dataset):
+        x, *others=data
         print(i)
         x = x.unsqueeze(0).to(device)
         x.requires_grad_()
@@ -155,40 +152,40 @@ def save_ref_seq_gradients(ckpt_path, results_save_dir, num_genes, tss_data_path
 
     print('saving centered grads.npy')
     if model_type == 'psagenet': 
-        ref_seq_0_idx_attribs = SAGEnet.tools.mean_center_attributions(ref_seq_0_idx_attribs)
-        personal_seq_1_idx_attribs = SAGEnet.tools.mean_center_attributions(personal_seq_1_idx_attribs)
-        np.save(f'{results_save_dir}centered_ref_seq_0_idx_grads',ref_seq_0_idx_attribs)
-        np.save(f'{results_save_dir}centered_personal_seq_1_idx_grads',personal_seq_1_idx_attribs)
+        ref_seq_0_idx_attribs = SAGEnet.tools.zero_center_attributions(ref_seq_0_idx_attribs)
+        personal_seq_1_idx_attribs = SAGEnet.tools.zero_center_attributions(personal_seq_1_idx_attribs)
+        np.save(f'{results_save_dir}ref_seq_0_idx_grads',ref_seq_0_idx_attribs)
+        np.save(f'{results_save_dir}personal_seq_1_idx_grads',personal_seq_1_idx_attribs)
 
     elif model_type == 'rsagenet': 
-        attribs = SAGEnet.tools.mean_center_attributions(attribs)
-        np.save(f'{results_save_dir}centered_grads',attribs)
+        attribs = SAGEnet.tools.zero_center_attributions(attribs)
+        np.save(f'{results_save_dir}grads',attribs)
     
     
-def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_win_size,hg38_file_path,tss_data_path,input_len,device,model_type,allow_reverse_complement,finetuned_weights_dir,variant_info_path):
+def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_win_size,hg38_file_path,tss_data_path,input_len,device,model_type,allow_reverse_complement,finetuned_weights_dir,variant_info_path,enformer_input_len=393216):
     """
     Given a gene (with optional variant inserted), perform ISM by mutating each base within a specified window around a specified center position. 
     
     Parameters: 
-    - gene: String gene ENSG id 
-    - results_save_dir: String path to directory in which to save ISM res 
+    - gene: String gene ENSG id. 
+    - results_save_dir: String path to directory in which to save ISM res.  
     - ckpt_path: String ckpt path to model to use for ISM. Only used if model_type!=enformer. 
-    - ism_center_genome_pos: Integer center position (coordinate in genome) around which to do ISM. 
+    - ism_center_genome_pos: Integer center position (coordinate in genome) around which to perform ISM. 
     - ism_win_size: Integer window size in which to do ISM, centered on ism_center_genome_pos. 
     - hg38_file_path: String path to the human genome (hg38) reference file.
     - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
-    - input_len: Integer, size of the genomic window model input. 
+    - input_len: Integer, size of the genomic window for model input. 
     - device: Integer, GPU index. 
-    - model_type: String type of model to evaluate, from {'psagenet, rsagenet, enformer'}
-    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
-    - finetuned_weights_dir: String of directory containing 'coef.npy' and 'intercept.npy' to finetune Enformer predictions. 
-    - variant_info_path: String path to DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', and 'alt'. If None, no variant inserted. 
+    - model_type: String type of model to evaluate, from {'psagenet, rsagenet, enformer'}. 
+    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand. 
+    - finetuned_weights_dir: String of directory containing 'coef.npy' and 'intercept.npy' used to finetune Enformer predictions. 
+    - variant_info_path: String path to DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', and 'alt'. If None, no variant is inserted. 
     
-    Saves: Numpy array of attributions (centered), shape (4, seq_len). 
+    Saves: Numpy array of attributions (zero-centered), shape (4, input_len). 
     """
     model_type=model_type.lower()
     if model_type=='enformer':
-        input_len=ENFORMER_INPUT_LEN
+        input_len=enformer_input_len
 
     # determine ISM start and stop idxs in sequence 
     start_of_interest = ism_center_genome_pos-ism_win_size//2
@@ -197,8 +194,11 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
     end_ism_idx = SAGEnet.tools.get_pos_idx_in_seq(gene, end_of_interest,tss_data_path,input_len,allow_reverse_complement=allow_reverse_complement)
     start_ism_idx=min(start_ism_idx,end_ism_idx)
     end_ism_idx=start_ism_idx+ism_win_size
-        
-    results_save_dir=f'{results_save_dir}{model_type}_model/'
+
+    # name results_save_dir 
+    if results_save_dir=='':
+        results_save_dir = os.path.dirname(ckpt_path) # by default, save results in the directory containing model ckpt 
+    results_save_dir=f'{results_save_dir}/{model_type}_model/ism/'
     os.makedirs(results_save_dir, exist_ok=True)
 
     # load model 
@@ -228,13 +228,12 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
         variant_info = pd.read_csv(variant_info_path, sep="\t")
         if variant_info.iloc[0]['gene']!=gene: 
             raise ValueError(f"gene in variant info ({variant_info.iloc[0]['gene']}) does not match gene provided ({gene})")
-  
         dataset = VariantDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,variant_info=variant_info, allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq,insert_variants=True)
         insert_variant=1
     x = dataset[0][0].unsqueeze(0).numpy()
     
     if model_type == 'psagenet': 
-        ism_res = np.zeros((2,4,ism_win_size,2)) # the first dim is for ref or personal, the 3rd is for first model output or 2nd model output 
+        ism_res = np.zeros((2,4,ism_win_size,2)) # the 0th dim is for ref or personal, 1st is nucleotide, 2nd is ISM window size,  3rd is for first model output or 2nd model output 
         for ref_or_personal_idx in [0,1]: # which sequence we are mutating 
             for len_idx in range(ism_win_size):
                 pos_idx = len_idx+start_ism_idx
@@ -242,10 +241,8 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
                     mutated_seq = x.copy()
                     mutated_seq[0,ref_or_personal_idx,:4,pos_idx] = np.zeros(4)
                     mutated_seq[0,ref_or_personal_idx,nuc_idx,pos_idx]=1
-                    mutated_seq=torch.from_numpy(mutated_seq)
-                    mutated_seq=mutated_seq.to(device)
+                    mutated_seq=torch.from_numpy(mutated_seq).to(device)
                     ism_res[ref_or_personal_idx,nuc_idx,len_idx,:] = model(mutated_seq)[0].detach().cpu().numpy()
-    
     else: # rSAGEnet or enformer 
         ism_res = np.zeros((4,ism_win_size)) 
         for len_idx in range(ism_win_size):
@@ -262,37 +259,37 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
                     mutated_seq=mutated_seq.to(device)
                     ism_res[nuc_idx,len_idx] = model(mutated_seq)[0].detach().cpu().numpy() 
                 
-    ism_res = SAGEnet.tools.mean_center_attributions(ism_res)
+    ism_res = SAGEnet.tools.zero_center_attributions(ism_res)
     if insert_variant:         
-        np.save(f"{results_save_dir}{gene}_ism_res_{start_of_interest}_to_{end_of_interest}_pos_{variant_info.iloc[0]['pos']}_{variant_info.iloc[0]['ref']}_to_{variant_info.iloc[0]['alt']}", ism_res)
+        np.save(f"{results_save_dir}{gene}_{start_of_interest}_to_{end_of_interest}_pos_{variant_info.iloc[0]['pos']}_{variant_info.iloc[0]['ref']}_to_{variant_info.iloc[0]['alt']}", ism_res)
     else: 
-        np.save(f'{results_save_dir}{gene}_ism_res_{start_of_interest}_to_{end_of_interest}',ism_res)
+        np.save(f'{results_save_dir}{gene}_{start_of_interest}_to_{end_of_interest}',ism_res)
 
 
 def get_annotated_seqlets(arr,seq,additional_flanks=2,threshold=.05,motif_database_path="/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme",n_nearest=5):
     """
-    Given an attribution array (centered) and sequence for that array, identify seqlets (and annotate seqlets if motif database is provided). 
+    Given an attribution array (zero-centered) and sequence for that array, identify seqlets (and annotate seqlets if motif database is provided). 
     
     Paramters: 
-    - arr: Numpy array of attributions (centered), shape (4, seq_len). 
-    - seq: Numpy array of sequence to multiply by attributions , shape (4, seq_len). 
+    - arr: Numpy array of attributions (zero-centered), shape (4, input_len). 
+    - seq: Numpy array of sequence to multiply by attributions , shape (4, input_len). 
     - additional_flanks: Integer additional_flanks input to tangermeme.seqlet.recursive_seqlets. 
     - threshold: Float pvalue threshold input to tangermeme.seqlet.recursive_seqlets. 
-    - motif_database_path: String path to motif database in .meme format to use to annotate seqlets. If not provided, seqlets are not annotated. 
+    - motif_database_path: String path to motif database in .meme format to use to annotate seqlets.
     - n_nearest: Integer input to tangermeme.annotate.annotate_seqlets specifying number of top annotations to provide. 
     
-    Returns: Dataframe of seqlets and annotations, or empty DataFrame if error. 
+    Returns: Dataframe of seqlets and annotations, or empty DataFrame if error occurs. 
     """
     try: 
-        arr=np.sum(arr*seq,axis=0) # get attributions at sequence 
+        arr=np.sum(arr*seq,axis=0) # get attributions at reference sequence 
         motifs = tangermeme.io.read_meme(motif_database_path)
         motif_names = list(motifs.keys())
         seqlets = tangermeme.seqlet.recursive_seqlets(arr[np.newaxis, :], additional_flanks=additional_flanks,threshold=threshold)
 
-        # annotate seqlets if database is provided
+        # annotate seqlets
         if motif_database_path: 
             motif_idxs, motif_pvalues = tangermeme.annotate.annotate_seqlets(seq[np.newaxis,:], seqlets, motif_database_path,n_nearest=n_nearest)
-            for match_rank in range(n_nearest): 
+            for match_rank in range(n_nearest): # create df based on annotated seqlets 
                 curr_matches = []
                 curr_match_pvals = []
                 for i in range(len(seqlets)): 
@@ -310,40 +307,38 @@ def get_annotated_seqlets(arr,seq,additional_flanks=2,threshold=.05,motif_databa
 
 def mult_gene_save_annotated_seqlets(attrib_path,gene_list_path, hg38_file_path,tss_data_path,input_len,additional_flanks,motif_database_path,n_nearest,threshold,allow_reverse_complement):
     """
-    Run get_annotated_seqlets on for genes in a specified list, given their corresponding attributions. 
+    Run get_annotated_seqlets for genes in a specified list, given their corresponding attributions. 
     Assumes that a file called gene_list exists in the same directory as attrib_path and specifies the gene order of attributions in attrib_path. 
     
     Paramters: 
-    - attrib_path: String path to numpy array containing attributions of shape (num_genes, 4, seq_len). 
-    - gene_list_path: String path to gene list for which to save annotated seqlests. 
+    - attrib_path: String path to numpy array containing attributions of shape (num_genes, 4, input_len). 
+    - gene_list_path: String path to gene list for which to save annotated seqlets. 
     - hg38_file_path: String path to the human genome (hg38) reference file.
     - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
     - input_len: Integer, size of the genomic window model input. 
     - additional_flanks: Integer additional_flanks input to tangermeme.seqlet.recursive_seqlets. 
-    - motif_database_path: String path to motif database in .meme format to use to annotate seqlets. If not provided, seqlets are not annotated. 
+    - motif_database_path: String path to motif database in .meme format to use to annotate seqlets. 
     - n_nearest: Integer input to tangermeme.annotate.annotate_seqlets specifying number of top annotations to provide. 
     - threshold: Float pvalue threshold input to tangermeme.seqlet.recursive_seqlets. 
     - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand. Should match what was used to save attributions. 
 
-    Saves: seqlet and annotation Dataframe per gene within a created directory inside of the same directory as attrib_path. 
+    Saves: seqlet and annotation Dataframe per gene within a directory created inside of the same directory as attrib_path. 
     """
     gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
 
     attribs_save_dir = f'{os.path.dirname(attrib_path)}/'
     attribs = np.load(attrib_path)
-    attribs_label = attrib_path.split('/')[-1].split('.')[0] # label for directory in which to save annotations 
+    attribs_label = attrib_path.split('/')[-1].split('.')[0] # label for directory in which to save annotations -- filename of attributions 
 
     attribs_gene_list = np.load(f'{attribs_save_dir}gene_list.npy',allow_pickle=True)
     use_gene_list = np.load(gene_list_path,allow_pickle=True)
     use_gene_list_idxs = [np.where(attribs_gene_list == value)[0][0] for value in use_gene_list]
     
-    attrib_analysis_save_dir = f'{attribs_save_dir}{attribs_label}_analysis/additional_flanks={additional_flanks}/'
+    attrib_analysis_save_dir = f'{attribs_save_dir}{attribs_label}_seqlet_analysis/additional_flanks={additional_flanks}/'
     os.makedirs(attrib_analysis_save_dir, exist_ok=True)
     
     for use_gene_idx in use_gene_list_idxs: 
         gene = attribs_gene_list[use_gene_idx]
-        
-        #if f'{gene}.csv' not in os.listdir(attrib_analysis_save_dir):
         print(gene)
         attrib = attribs[use_gene_idx,:]
         selected_genes_meta = gene_meta_info.set_index('ensg', drop=False).loc[[gene]]
@@ -352,7 +347,6 @@ def mult_gene_save_annotated_seqlets(attrib_path,gene_list_path, hg38_file_path,
         annotated_seqlets =  get_annotated_seqlets(attrib,ref_seq,additional_flanks=additional_flanks,threshold=threshold,motif_database_path=motif_database_path,n_nearest=n_nearest)
         annotated_seqlets.to_csv(f'{attrib_analysis_save_dir}{gene}.csv')
               
-
 
 if __name__ == '__main__':  
     

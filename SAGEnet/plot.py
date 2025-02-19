@@ -3,14 +3,14 @@ import numpy as np
 import scipy 
 import matplotlib.pyplot as plt
 import os
-#import seaborn as sb
+import seaborn as sb
 from sklearn.metrics import r2_score
 import tangermeme.plot
-#from adjustText import adjust_text
+from adjustText import adjust_text
 
-def plot_attribs(arr,title,annotations=None,center_line=False,save_dir=None): 
+def plot_attribs(arr,title,annotations=None,center_line=False,save_dir=None,save_name=''): 
     """
-    Plot model attributions, optionally labeled with annotations. 
+    Plot model attributions, optionally labeled with annotations. Arr is attribution array of shape (4, seq_lenth). 
     """
     plt.figure(figsize=(15, 1))
     ax = plt.subplot(111)
@@ -35,15 +35,15 @@ def plot_attribs(arr,title,annotations=None,center_line=False,save_dir=None):
     ax.tick_params(axis='x', labelsize=8)
     if save_dir: 
         os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, save_name),bbox_inches='tight')
+        plt.savefig(f'{save_dir}{save_name}.pdf',format='pdf', dpi=300,bbox_inches='tight')   
     else: 
         plt.show()
 
 
 
-def plot_heatmap(arr, center_line=False, save_dir=None): 
+def plot_heatmap(arr, center_line=False, save_dir=None,save_name=''): 
     """
-    Heatmap of model attributions. 
+    Plot heatmap of model attributions. Arr is attribution array of shape (4, seq_lenth). 
     """
     num_columns = arr.shape[1]
     plt.figure(figsize=(15, 0.5))
@@ -67,7 +67,7 @@ def plot_heatmap(arr, center_line=False, save_dir=None):
     ax.tick_params(axis='x', labelsize=8)
     if save_dir: 
         os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, save_name),bbox_inches='tight')
+        plt.savefig(f'{save_dir}{save_name}.pdf',format='pdf', dpi=300,bbox_inches='tight')   
     else: 
         plt.show()
 
@@ -75,7 +75,7 @@ def plot_heatmap(arr, center_line=False, save_dir=None):
 
 def line_plot_compare(arra,arrb,xlabels,x=None,arra_t='',arrb_t='',xlabel='',ylabel='',title='',shade_std=True,fig_width=6,fig_height=6,legend_x=.7,legend_y=.95,save_dir=None,save_name=None): 
     """
-    Line plot comparing two arrays. Each array can be 1d or 2d, if 2d, the first dimension determines the number of x-ticks, the second dimension will be plotted as median + standard deviation. 
+    Plot Line plot comparing two arrays. Each array can be 1d or 2d, if 2d, the first dimension determines the number of x-ticks, the second dimension will be plotted as median and standard deviation. 
     """
     plt.clf()
     if save_name is None: 
@@ -115,13 +115,13 @@ def line_plot_compare(arra,arrb,xlabels,x=None,arra_t='',arrb_t='',xlabel='',yla
     
     if save_dir: 
         os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, save_name),bbox_inches='tight')
+        plt.savefig(f'{save_dir}{save_name}.pdf',format='pdf', dpi=300,bbox_inches='tight')
     else: 
         plt.show()
     
 def sb_boxplot(res_df, xlabel='', ylabel='',save_dir=None,save_name=None,title='',fig_width=11,fig_height=6,scatter=True,dot_size=5,dot_alpha=.1,boxplot=True,custom_palette=None,save_fig=None):
     """
-    Seaborn boxplots of one or more arrays. res_df should be a pandas dataframe, with each column being an array to plot. 
+    Plot seaborn boxplots of one or more arrays. res_df should be a pandas dataframe, with each column being an array to plot. 
     """
     plt.clf()
     if custom_palette is None: 
@@ -149,14 +149,14 @@ def sb_boxplot(res_df, xlabel='', ylabel='',save_dir=None,save_name=None,title='
     sb.despine()
     if save_dir: 
         os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, save_name),bbox_inches='tight')
+        plt.savefig(f'{save_dir}{save_name}.pdf',format='pdf', dpi=300,bbox_inches='tight')
     else: 
         plt.show()
 
         
 def boxplot_compare(arra, arrb, arra_t='',arrb_t='',save_dir=None,title='',stat_test='ks',ylabel='',fig_width=7,fig_height=6,include_stat_test=True, save_name=None):
     """
-    Compare two arrays with a boxplot. Each array should be 1d. 
+    Plot two arrays as boxplots. Each array should be 1d. 
     """
     plt.clf()
     if save_name is None: 
@@ -183,13 +183,14 @@ def boxplot_compare(arra, arrb, arra_t='',arrb_t='',save_dir=None,title='',stat_
     ax.spines['right'].set_visible(False)
     if save_dir is not None: 
         os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, save_name),bbox_inches='tight')
+        plt.savefig(f'{save_dir}{save_name}.pdf',format='pdf', dpi=300,bbox_inches='tight')   
     else: 
         plt.show()
 
+
 def scatter_compare(arra, arrb,arra_t='', arrb_t='', save_dir=None,title='', add_identity_line=False,nan_to_zero=True,save_name=None,plot_density=True,axes_lines=0,names=None,show_r2=False,color_arr=None,color_labels=None,corr_label=True,hline_y=None): 
     """
-    Compare two arrays with a scatterplot. Each array should be 1d. 
+    Plot two arrays as a scatterplot. Each array should be 1d. 
     """
     plt.clf()
     if save_name is None: 
@@ -264,7 +265,7 @@ def scatter_compare(arra, arrb,arra_t='', arrb_t='', save_dir=None,title='', add
 
     if save_dir is not None: 
         os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, save_name),bbox_inches='tight')
+        plt.savefig(f'{save_dir}{save_name}.pdf',format='pdf', dpi=300,bbox_inches='tight')   
     else: 
         plt.show()
 
@@ -317,6 +318,6 @@ def plot_hist(data,xlabel='', ylabel='',title='',save_dir=None,logscale=False,bi
     
     if save_dir is not None: 
         os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, save_name),bbox_inches='tight')
+        plt.savefig(f'{save_dir}{save_name}.pdf',format='pdf', dpi=300,bbox_inches='tight')   
     else: 
         plt.show()
