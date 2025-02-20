@@ -9,7 +9,7 @@ maf_threshold=-1
 best_ckpt_metric=train_gene_gene
 gene_idx_start=0
 input_len=2000
-allow_reverse_complement=1
+allow_reverse_complement=0
 ckpt_path=/gscratch/mostafavilab/aspiro17/personal_genome_res/1k_input_2k_no_rc_fix_err/23149453/
 
 for i in $(seq 1 ${num_jobs}); do

@@ -9,7 +9,7 @@ maf_threshold=-1
 best_ckpt_metric=train_gene_gene
 gene_idx_start=0
 input_len=40000
-allow_reverse_complement=1
+allow_reverse_complement=0
 base_ckpt_path=/gscratch/mostafavilab/aspiro17/personal_genome_res/num_training_subs_save_all_epochs/
 
 num_training_subs=(5 50 200 400)

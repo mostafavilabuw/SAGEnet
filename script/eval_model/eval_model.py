@@ -3,17 +3,13 @@ import pandas as pd
 import argparse
 from torch.utils.data import DataLoader
 import os
-import time
-import torch
 import SAGEnet.tools
 from SAGEnet.data import PersonalGenomeDataset
 import pytorch_lightning as pl
 from SAGEnet.models import rSAGEnet,pSAGEnet
 from SAGEnet.enformer import Enformer
 
-ENFORMER_INPUT_LEN=393216
-
-def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_path,batch_size,num_workers,device,input_len,model_type,rosmap_or_gtex,predixcan_res_path,sub_data_dir,train_val_test,eval_on_ref_seq,vcf_file_path,best_ckpt_metric,max_epochs,identify_best_ckpt,rand_genes,top_genes_to_consider,seed,only_snps,save_per_gene,maf_threshold,train_subs_vcf_file_path,allow_reverse_complement,gene_idx_start,enformer_save_mode,enformer_finetuned_weights_dir):
+def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_path,batch_size,num_workers,device,input_len,model_type,rosmap_or_gtex,predixcan_res_path,sub_data_dir,train_val_test,eval_on_ref_seq,vcf_file_path,best_ckpt_metric,max_epochs,identify_best_ckpt,rand_genes,top_genes_to_consider,seed,only_snps,save_per_gene,maf_threshold,train_subs_vcf_file_path,allow_reverse_complement,gene_idx_start,enformer_save_mode,enformer_finetuned_weights_dir,enformer_input_len=393216):
     """
     Eval model (pSAGEnet, rSAGEnet, or Enformer) on WGS data. 
     
@@ -31,10 +27,10 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
     - rosmap_or_gtex: String indicating which dataset is being evaluated. 
     - predixcan_res_path: String path to predixcan results path, to be used to construct ranked gene sets. 
     - sub_data_dir: String path to directory containing lists of individual train/validation/test splits. 
-    - train_val_test: String indicating what set of individuals to evaluate on (if ROSMAP), from {'train', 'val', 'test'} 
-    - eval_on_ref_seq: Boolean indicating whether to evalute on reference sequence for each gene (instead of all personal sequences) 
+    - train_val_test: String indicating what set of individuals to evaluate on (if ROSMAP), from {'train', 'val', 'test'}. 
+    - eval_on_ref_seq: Boolean indicating whether to evalute on reference sequence for each gene (instead of on personal sequences). 
     - vcf_file_path: String path to the VCF file with variant information.
-    - best_ckpt_metric: Metric used to select best model from ckpt dir, (if identify_best_ckpt==True). Can be one of {'train_gene_gene', 'train_gene_sample', 'val_gene_gene', 'val_gene_sample'}
+    - best_ckpt_metric: Metric used to select best model from ckpt dir, (if identify_best_ckpt==True). Can be one of {'train_gene_gene', 'train_gene_sample', 'val_gene_gene', 'val_gene_sample'}. 
     - rand_genes: Boolean indicating whether or not to randomly select genes (from top_genes_to_consider gene set) to use in model evaluation. If False, select gene set from top-prediXcan ranked genes. 
     - top_genes_to_consider: Integer, length of prediXcan-ranked top gene set to consider when randomly selecting genes (only relevant if rand_genes==True). 
     - seed: Integer seed to determine random shuffling of gene set. 
@@ -42,13 +38,13 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
     - save_per_gene: Boolean indicating whether results for each gene are saved seperately. Can be used to parallelize model evaluation. If model_type==enformer, this is set to True. 
     - maf_threshold: Float, MAF threshold to use in evaluation. 
     - train_subs_vcf_file_path: String path to the VCF file for train_subs (to use to calculate MAF). 
-    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
+    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand. 
     - gene_idx_start: Integer index in prediXcan-ranked gene list of first gene to use in model evaluation. 
-    - enformer_save_mode
     - enformer_save_mode: String indicating how Enformer's outputs should be processed. If save_mode=='finetuned', log(predictions+1) from the 3 center bins will be transformed using weights from finetuned_weights_dir and summed to yield a single prediction value. If save_mode=='only_brain', log(predictions+1) from the 3 center bins, track 4980 ('CAGE:brain, adult') will be summed to yield a single prediction value. If save_mode=='all_tracks', prediction values from the center 3 bins from all tracks (shape 3,5313) will be saved. 
     - finetuned_weights_dir: String of directory containing 'coef.npy' and 'intercept.npy' to finetune Enformer predictions. 
     - max_epochs: Integer, maximum number of epochs to consider when selecting best model ckpt. 
     - identify_best_ckpt: Boolean, whether or not to use best_ckpt_metric to select best model ckpt within ckpt_path. If False, best model ckpt path is assumed to be the path given by ckpt_path. 
+    - enformer_input_len: Integer input length to use for dataset to Enformer model. 
     """
     # load model 
     model_type=model_type.lower()
@@ -68,9 +64,9 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
         
     elif model_type=='enformer':
         print('enformer model')
-        input_len=ENFORMER_INPUT_LEN
+        input_len=enformer_input_len
         os.environ["CUDA_VISIBLE_DEVICES"]=str(device)
-        model = Enformer(finetuned_weights_dir=finetuned_weights_dir)
+        model = Enformer(finetuned_weights_dir=enformer_finetuned_weights_dir)
         
     # info for constructing dataset 
     if rosmap_or_gtex == 'rosmap':
@@ -79,7 +75,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
         contig_prefix='chr'
     else: 
         raise ValueError("rosmap_or_gtex must be one of {rosmap,gtex}")
-    gene_meta_info = pd.read_csv(args.tss_data_path, sep="\t")
+    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
     
     # name results_save_dir 
     if results_save_dir=='':
@@ -113,10 +109,11 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
     # load sub info 
     
     # both rosmap and gtex need rosmap train subs to use in MAF calculation  
-    train_subs = np.loadtxt(sub_data_dir + 'train_subs.csv',delimiter=',',dtype=str)
+    train_subs = np.loadtxt(f'{sub_data_dir}ROSMAP/train_subs.csv',delimiter=',',dtype=str)
     if rosmap_or_gtex == 'rosmap':
-        val_subs = np.loadtxt(sub_data_dir + 'val_subs.csv',delimiter=',',dtype=str)
-        test_subs = np.loadtxt(sub_data_dir + 'test_subs.csv',delimiter=',',dtype=str)
+        val_subs = np.loadtxt(f'{sub_data_dir}ROSMAP/val_subs.csv',delimiter=',',dtype=str)
+        test_subs = np.loadtxt(f'{sub_data_dir}ROSMAP/test_subs.csv',delimiter=',',dtype=str)
+
         if train_val_test=='train':
             subs=train_subs
         elif train_val_test=='val':
@@ -127,7 +124,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
             subs = np.concatenate((train_subs,val_subs,test_subs)) # all subs
                     
     if rosmap_or_gtex == 'gtex':
-        subs = np.loadtxt(sub_data_dir + 'all_subs.csv',delimiter=',',dtype=str)
+        subs = np.loadtxt(f'{sub_data_dir}GTEx/all_subs.csv',delimiter=',',dtype=str)
         
     if eval_on_ref_seq: 
         subs=[subs[0]]  
@@ -213,6 +210,7 @@ if __name__ == '__main__':
     parser.add_argument('--enformer_finetuned_weights_dir',default='/data/mostafavilab/personal_genome_expr/final_results/enformer/ref_seq_all_tracks/')
     parser.add_argument('--vcf_file_path', default='/data/mostafavilab/bng/rosmapAD/data/wholeGenomeSeq/chrAll.phased.vcf.gz')
     parser.add_argument('--train_subs_vcf_file_path', default='/data/mostafavilab/bng/rosmapAD/data/wholeGenomeSeq/chrAll.phased.vcf.gz')
+    parser.add_argument('--sub_data_dir', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/individual_sets/')
     args = parser.parse_args()
     
     eval_model(

@@ -60,9 +60,10 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     print(f'creating dir {model_save_dir}')
     os.makedirs(model_save_dir, exist_ok=True)
     wandb_logger = WandbLogger(project=wandb_project, name=wandb_job_name, id=wandb_job_name, resume="allow")
-    
-    train_subs = np.loadtxt(sub_data_dir + 'train_subs.csv',delimiter=',',dtype=str)
-    val_subs = np.loadtxt(sub_data_dir + 'val_subs.csv',delimiter=',',dtype=str)
+
+    train_subs = np.loadtxt(f'{sub_data_dir}ROSMAP/train_subs.csv',delimiter=',',dtype=str)
+    val_subs = np.loadtxt(f'{sub_data_dir}ROSMAP/val_subs.csv',delimiter=',',dtype=str)
+
     sel_train_subs=train_subs[:num_training_subs]
     print(f'num train subs={len(sel_train_subs)}')
     print(f'num val subs={len(val_subs)}')
@@ -203,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument('--maf_threshold', default=-1,type=float)
     parser.add_argument('--tss_data_path', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/gene-ids-and-positions.tsv')
     parser.add_argument('--expr_data_path', default='/data/mostafavilab/personal_genome_expr/data/rosmap/expressionData/vcf_match_covariate_adjusted_log_tpm.csv')
-    parser.add_argument('--sub_data_dir', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/data/ROSMAP/sub_lists/')
+    parser.add_argument('--sub_data_dir', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/individual_sets/')
     parser.add_argument('--predixcan_res_path', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/results_data/predixcan/rosmap_pearson_corr.csv')
     parser.add_argument('--hg38_file_path', default='/data/tuxm/project/Decipher-multi-modality/data/genome/hg38.fa')
     parser.add_argument('--vcf_file_path', default='/data/mostafavilab/bng/rosmapAD/data/wholeGenomeSeq/chrAll.phased.vcf.gz')

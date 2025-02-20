@@ -9,7 +9,7 @@ max_epochs=10
 maf_threshold=-1
 best_ckpt_metric=train_gene_gene
 gene_idx_start=0
-allow_reverse_complement=1
+allow_reverse_complement=0
 base_ckpt_path=/gscratch/mostafavilab/aspiro17/personal_genome_res/test_weights_save_all_epochs/
 
 diff_weights=(1 10 100)
