@@ -151,7 +151,7 @@ class VariantDataset(Dataset):
         Parameters:
         - gene_metadata: DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
         - hg38_file_path: String path to the human genome (hg38) reference file.
-        - variant_info: DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', and 'alt'. 
+        - variant_info: DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', 'ref', and 'alt'. 
         - input_len: Integer, size of the genomic window for model input. 
         - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
         - insert_variants: Boolean, if True, insert variant, if False, do not insert variant (predict from reference sequence). 
