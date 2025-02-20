@@ -85,6 +85,21 @@ And loading in your:
 Initialize the ReferenceGenomeDataset with:   
 `variant_dataset = SAGEnet.data.VariantDataset(gene_metadata=<gene_metadata>, hg38_file_path=<hg38_file_path>, variant_info=<variant_info>)`
 
+## enformer.py 
+- Initialize the Enformer model from TF Hub and use to predict from PersonalGenomeDataset, ReferenceGenomeDataset, or VariantDataset. For example use, see `SAGEnet/script/eval_model/eval_model.py`.
+
+## models.py 
+- Initialize rSAGEnet or pSAGEnet model. For training rSAGEnet, see `SAGEnet/script/baselines/train_rsagenet.py`. For training pSAGEnet, see `SAGEnet/script/train_model/train_model.py`. For evaluating both models, see `SAGEnet/script/eval_model/eval_model.py`.
+
+## nn.py 
+- Contains model components used in `models.py`.
+
+## plot.py 
+-- Contains plotting functions. For example use, see `SAGEnet/plot_figs`. 
+
+## tools.py 
+-- Contians misc functions used throughout SAGEnet package. 
+
 
 
 
