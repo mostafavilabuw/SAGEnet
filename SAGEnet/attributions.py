@@ -356,7 +356,7 @@ if __name__ == '__main__':
     parser.add_argument("--results_save_dir")
     parser.add_argument("--model_type")
     parser.add_argument("--gene")
-    parser.add_argument("--variant_info_path")
+    parser.add_argument("--variant_info_path",default=None)
     parser.add_argument("--attrib_path")
     parser.add_argument("--gene_list_path")
     parser.add_argument("--ism_center_genome_pos",type=int)
