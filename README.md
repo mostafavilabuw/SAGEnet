@@ -28,8 +28,8 @@ And loading in your:
 `<expr_data>` (DataFrame of expression data indexed by gene names, with sample names as columns),  
 
 You can initialize a PersonalGenomeDataset by running:  
-`import SAGEnet.data  
-personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=<gene_metadata>, vcf_file_path=<vcf_file_path>, hg38_file_path=<hg38_file_path>, sample_list=<sample_list>, expr_data=<expr_data>)`. 
+```import SAGEnet.data  
+personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=<gene_metadata>, vcf_file_path=<vcf_file_path>, hg38_file_path=<hg38_file_path>, sample_list=<sample_list>, expr_data=<expr_data>)```
 
 For more examples, see the READMEs in each directory. 
 
