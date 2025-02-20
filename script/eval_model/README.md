@@ -21,7 +21,7 @@ Specify the individuals to evaluate on:
 Specify your model type: 
 `<model_type>`
 
-And (optionally) specify a MAF threshold above which to insert variants: 
+(Optionally) specify a MAF threshold above which to insert variants: 
 `<maf_threshold>`
 
 And run:  
