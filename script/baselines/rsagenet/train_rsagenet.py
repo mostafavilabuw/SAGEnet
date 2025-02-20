@@ -10,7 +10,9 @@ from SAGEnet.models import rSAGEnet
 import SAGEnet.tools
 import glob
 import os
-os.environ["WANDB_API_KEY"] = 'bac578513f9551e378b5f22125f6c279e90297e8' # change to your WANDB key 
+
+# add your WANDB key 
+#os.environ["WANDB_API_KEY"] = 'your_key' 
 
 def train_ref(batch_size, num_workers, max_epochs, model_save_dir, num_nodes, h_layers, n_conv_blocks, batch_norm, dropout, int_layers_kernel_number, first_layer_kernel_size, int_layers_kernel_size, hidden_size, pooling_size, pooling_type, input_len,learning_rate,first_layer_kernel_number,n_dilated_conv_blocks,increasing_dilation,wandb_project,wandb_job_name,tss_data_path,expr_data_path,hg38_file_path,enformer_gene_assignments_path,use_enformer_gene_assignments,allow_reverse_complement, gene_list_path,device,sub_data_dir):
 

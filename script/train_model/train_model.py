@@ -11,7 +11,8 @@ import SAGEnet.tools
 import glob
 import os
 
-os.environ["WANDB_API_KEY"] = 'bac578513f9551e378b5f22125f6c279e90297e8' # change to your WANDB key 
+# add your WANDB key 
+#os.environ["WANDB_API_KEY"] = 'your_key' 
 
 def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,hg38_file_path,vcf_file_path,wandb_project,start_from_ref,ref_model_ckpt_path,num_nodes,input_len,batch_size,num_workers,max_epochs,wandb_job_name,device,lam_diff,lam_ref,zscore,predixcan_res_path,num_top_train_genes,num_top_val_genes,only_snps,split_expr,num_training_subs,save_all_epochs,seed,rand_genes,top_genes_to_consider,maf_threshold,gene_idx_start,allow_reverse_complement,block_type,first_layer_kernel_number,int_layers_kernel_number,hidden_size,h_layers): 
     """
