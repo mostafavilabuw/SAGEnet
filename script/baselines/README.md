@@ -1,4 +1,4 @@
-This directory contains code to run the baselines used: Enformer, PrediXcan, r-SAGE-net. 
+This directory contains code for the baselines used: Enformer, PrediXcan, r-SAGE-net. 
 
 ## enformer/finetune_enformer.py 
 - Save weights to use to fine-tune Enformer predictions by training an elastic net model on all track predictions and mean GTEx expression data for Enformer train genes. 
