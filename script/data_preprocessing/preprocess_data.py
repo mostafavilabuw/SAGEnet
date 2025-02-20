@@ -310,7 +310,7 @@ if __name__ == '__main__':
     rosmap_vcf_path='/data/mostafavilab/bng/rosmapAD/data/wholeGenomeSeq/chrAll.phased.vcf.gz'
     rosmap_raw_gene_expr_path = '/data/mostafavilab/bng/rosmapAD/data/expressionData/DLPFC/20220207-bulk-RNAseq/raw_geneTpm.txt'
     rosmap_sub_data_dir = '/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/individual_sets/ROSMAP/'
-    save_rosmap_individual_sets(rosmap_sub_data_dir,rosmap_vcf_path, rosmap_raw_gene_expr_path, train_frac=.8,val_frac=.1, test_frac=.1,random_seed=17): 
+    save_rosmap_individual_sets(rosmap_sub_data_dir,rosmap_vcf_path, rosmap_raw_gene_expr_path, train_frac=.8,val_frac=.1, test_frac=.1,random_seed=17)
 
     # preprocess ROSMAP expression data 
     rosmap_expr_data_save_dir='/data/mostafavilab/personal_genome_expr/data/rosmap/expressionData/'
@@ -319,7 +319,7 @@ if __name__ == '__main__':
     rosmap_genotype_pcs_path = '/data/mostafavilab/personal_genome_expr/ancestry/ancestry.eigenvec'
     # these are saved with plink --bfile chrAll.phased --out ancestry --pca 1161
         
-    rosmap_adjust_for_covariates(rosmap_expr_data_save_dir, rosmap_individual_sets_save_dir, rosmap_raw_gene_expr_path, rosmap_qual_metrics_covariates_path, rosmap_phen_covariates_path, rosmap_genotype_pcs_path, num_expr_pcs=10, num_genotype_pcs=3)
+    rosmap_adjust_for_covariates(rosmap_expr_data_save_dir, rosmap_sub_data_dir, rosmap_raw_gene_expr_path, rosmap_qual_metrics_covariates_path, rosmap_phen_covariates_path, rosmap_genotype_pcs_path, num_expr_pcs=10, num_genotype_pcs=3)
     
     # preprocess GTEx exprssion data 
     gtex_expr_save_dir='/data/tuxm/GTEX_v8/'
