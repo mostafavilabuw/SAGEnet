@@ -6,27 +6,36 @@ This directory contains the SAGEnet editable package.
 #### ISM example (Fig. S3-S5) 
 After defining your paths
 `<results_save_dir>,<ckpt_path>,<variant_info_path>,<hg38_file_path>,<tss_data_path>,<finetuned_weights_dir>`  
+
 Run:
+
 p-SAGE-net, insert variant:     
 `$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type psagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --variant_info_path <variant_info_path>`   
+
 p-SAGE-net, do not insert variant:     
 `$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type psagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>` 
+
 r-SAGE-net, insert variant:     
 `$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type rsagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --variant_info_path <variant_info_path>`   
+
 r-SAGE-net, do not insert variant:       
 `$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type rsagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>` 
+
 Enformer, insert variant:     
 `$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type enformer --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --variant_info_path <variant_info_path> --finetuned_weights_dir <finetuned_weights_dir>`   
+
 Enformer, do not insert variant:     
 `$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type enformer --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --finetuned_weights_dir <finetuned_weights_dir>` 
 
 #### Seqlet analysis (Fig. S6) 
 After defining your paths
 `<ckpt_path>,<results_save_dir>,<hg38_file_path>,<tss_data_path>,<predixcan_res_path>` 
+
 p-SAGE-net save gradients:   
-`$python attributions.py --which_fn save_ref_seq_gradients --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path> --model_type psagenet --predixcan_res_path <predixcan_res_path>
+`$python attributions.py --which_fn save_ref_seq_gradients --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path> --model_type psagenet --predixcan_res_path <predixcan_res_path>`
+
 r-SAGE-net save gradients:   
-`$python attributions.py --which_fn save_ref_seq_gradients --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path> --model_type rsagenet --predixcan_res_path <predixcan_res_path>
+`$python attributions.py --which_fn save_ref_seq_gradients --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path> --model_type rsagenet --predixcan_res_path <predixcan_res_path>`
 
 
 
