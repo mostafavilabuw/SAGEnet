@@ -1,4 +1,4 @@
-This directory contains code to train p-SAGE-net. 
+This directory contains code to train p-SAGE-net on personal sequence and expression. 
 
 ## training_experiment_sh_scripts
 - Contains scripts to train p-SAGE-net models with different combinations of hyperparameters. Each calls `run_train_model.sh`.
