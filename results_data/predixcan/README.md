@@ -1,0 +1,1 @@
+This directory contains prediXcan results for a model trained on ROSMAP training individuals, evaluated on ROSMAP train/validaiton/test individuals (`romsap_pearson_corr.csv`) and GTEx individuals (`gtex_pearson_corr.csv`). 
