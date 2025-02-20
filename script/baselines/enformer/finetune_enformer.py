@@ -1,6 +1,7 @@
 import numpy as np 
 import pandas as pd
 import argparse
+import os
 from sklearn.model_selection import PredefinedSplit
 from sklearn.linear_model import ElasticNetCV
 from sklearn.linear_model import ElasticNet
@@ -10,7 +11,7 @@ def finetune_enformer(enformer_res_path,expr_data_path,enformer_gene_assignments
     Save Enformer fine-tuning weights. 
     
     Paramters: 
-    - enformer_res_path: String path to directory containing per-gene Enformer predictions (all tracks saved, shape (3, 5313))
+    - enformer_res_path: String path to directory containing per-gene Enformer predictions (all tracks saved, shape (3, 5313)). 
     - expr_data_path: String path to expression Dataframe to use for finetuning. 
     - enformer_gene_assignments_path: String path to dataframe containing Enformer gene splits. 
     """

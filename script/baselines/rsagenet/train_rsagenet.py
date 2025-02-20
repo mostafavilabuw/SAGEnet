@@ -1,13 +1,13 @@
 import argparse
 import pandas as pd
 import numpy as np
-import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 from SAGEnet.data import ReferenceGenomeDataset
 from SAGEnet.models import rSAGEnet
+import SAGEnet.tools
 import glob
 import os
 os.environ["WANDB_API_KEY"] = 'bac578513f9551e378b5f22125f6c279e90297e8' # change to your WANDB key 
@@ -41,6 +41,7 @@ def train_ref(batch_size, num_workers, max_epochs, model_save_dir, num_nodes, h_
     es = EarlyStopping(monitor="val_pearson", patience=10,mode='max')
     checkpoint_callback = ModelCheckpoint(dirpath=model_save_dir, monitor="val_pearson", save_top_k=1, mode="max", save_last=True, every_n_epochs=1)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
+    callbacks=[es,checkpoint_callback,lr_monitor]
 
     if glob.glob(os.path.join(model_save_dir, "*.ckpt"))!=[]:
         last_checkpoint = model_save_dir + "/last.ckpt"
@@ -52,7 +53,7 @@ def train_ref(batch_size, num_workers, max_epochs, model_save_dir, num_nodes, h_
     devices=[int(device)] if device else 1, 
     num_nodes=num_nodes, 
     strategy="ddp" if not device else None, 
-    callbacks=ckpt_list, 
+    callbacks=callbacks, 
     max_epochs=max_epochs, 
     benchmark=False, 
     profiler='simple', 

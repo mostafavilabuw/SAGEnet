@@ -4,7 +4,6 @@ import os
 import argparse
 from sklearn.model_selection import PredefinedSplit
 from sklearn.linear_model import ElasticNetCV,ElasticNet
-import pysam
 import warnings
 from sklearn.exceptions import ConvergenceWarning
 import SAGEnet.tools
