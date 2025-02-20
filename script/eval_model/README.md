@@ -27,7 +27,7 @@ Specify your model type:
 And run:  
 `$python eval_model.py --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --tss_data_path <tss_data_path> --hg38_file_path <hg38_file_path> --predixcan_res_path <predixcan_res_path> --vcf_file_path <vcf_file_path> --sub_data_dir <sub_data_dir> --enformer_finetuned_weights_dir <enformer_finetuned_weights_dir> --enformer_save_mode <enformer_save_mode> --num_genes <num_genes> --rand_genes <rand_genes> --gene_idx_start <gene_idx_start> --rosmap_or_gtex <rosmap_or_gtex> --train_val_test <train_val_test> --model_type <model_type> --maf_threshold <maf_threshold>`
 
-To evaluate model personal sequence.   
+To evaluate model on personal sequence.   
 To instead evaluate on reference sequence, add `--eval_on_ref_seq True`
 
 ## run_eval_model.sh
