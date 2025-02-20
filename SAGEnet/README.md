@@ -95,10 +95,10 @@ Initialize the ReferenceGenomeDataset with:
 - Contains model components used in `models.py`.
 
 ## plot.py 
--- Contains plotting functions. For example use, see `SAGEnet/plot_figs`. 
+- Contains plotting functions. For example use, see `SAGEnet/plot_figs`. 
 
 ## tools.py 
--- Contians misc functions used throughout SAGEnet package. 
+- Contians misc functions used throughout SAGEnet package. 
 
 
 
