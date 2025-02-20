@@ -19,11 +19,11 @@ Run:
 To save PrediXcan predictions and coefficients. 
 
 ## rsagenet/hyperparameter_search.sh 
-- Submit jobs to train rSAGEnet models with different combinations of hyperparamters (from defined grid search). Calls `run_train_rsagenet.sh`. 
+- Submit jobs to train rSAGEnet models with different combinations of hyperparameters (from defined grid search). Calls `run_train_rsagenet.sh`. 
 
 ## rsagenet/run_train_rsagenet.sh 
-- Run `train_rsagenet.py` with specified set of hyperparamters. Called by `hyperparameter_search.sh`.
+- Run `train_rsagenet.py` with specified set of hyperparameters. Called by `hyperparameter_search.sh`.
 
 ## rsagenet/train_rsagenet.py
-- Train r-SAGE-net model with specified set of hyperparamters. Called by `run_train_rsagenet.sh`.
+- Train r-SAGE-net model with specified set of hyperparameters. Called by `run_train_rsagenet.sh`.
 
