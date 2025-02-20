@@ -31,7 +31,7 @@ To evaluate model on personal sequence.
 To instead evaluate on reference sequence, add `--eval_on_ref_seq True`
 
 ## run_eval_model.sh
-- Run `eval_model.py` to evaluate p-SAGE-net model with specified set of hyperparameters. Call by scripts in `evaluation_sh_scripts`.
+- Run `eval_model.py` to evaluate p-SAGE-net model with specified set of hyperparameters. Called by scripts in `evaluation_sh_scripts`.
 
  
   
