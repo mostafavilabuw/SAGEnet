@@ -24,6 +24,6 @@ Specify number of training individuals:
 `<num_training_subs>`
 
 And run:  
-`$python train_model.py --model_save_dir <model_save_dir> --tss_data_path <tss_data_path> --hg38_file_path <hg38_file_path> --predixcan_res_path <predixcan_res_path> --vcf_file_path <vcf_file_path> --vcf_file_path <vcf_file_path> --sub_data_dir <sub_data_dir> --expr_data_path <expr_data_path> --ref_model_ckpt_path <ref_model_ckpt_path> --num_genes <num_genes> --rand_genes <rand_genes> --gene_idx_start <gene_idx_start> --num_training_subs <num_training_subs>` 
+`$python train_model.py --model_save_dir <model_save_dir> --tss_data_path <tss_data_path> --hg38_file_path <hg38_file_path> --predixcan_res_path <predixcan_res_path> --vcf_file_path <vcf_file_path> --vcf_file_path <vcf_file_path> --sub_data_dir <sub_data_dir> --expr_data_path <expr_data_path> --ref_model_ckpt_path <ref_model_ckpt_path> --num_genes <num_genes> --rand_genes <rand_genes> --gene_idx_start <gene_idx_start> --num_training_subs <num_training_subs>`   
 To train model on personal sequence and personal expression.   
 
