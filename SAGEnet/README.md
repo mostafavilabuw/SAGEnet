@@ -29,13 +29,21 @@ Enformer, do not insert variant:
 
 #### Seqlet analysis (Fig. S6) 
 After defining your paths
-`<ckpt_path>,<results_save_dir>,<hg38_file_path>,<tss_data_path>,<predixcan_res_path>` 
+`<ckpt_path>,<results_save_dir>,<hg38_file_path>,<tss_data_path>,<predixcan_res_path>,<gene_list_path>,<motif_database_path>` 
 
 p-SAGE-net save gradients:   
 `$python attributions.py --which_fn save_ref_seq_gradients --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path> --model_type psagenet --predixcan_res_path <predixcan_res_path>`
 
 r-SAGE-net save gradients:   
 `$python attributions.py --which_fn save_ref_seq_gradients --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path> --model_type rsagenet --predixcan_res_path <predixcan_res_path>`
+
+p-SAGE-net annotate seqlets:   
+`$python attributions.py --which_fn mult_gene_save_annotated_seqlets --gene_list_path <gene_list_path> --attrib_path <results_save_dir>psagenet_model/gradients/personal_seq_1_idx_grads.npy` --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>
+
+r-SAGE-net annotate seqlets:   
+`$python attributions.py --which_fn mult_gene_save_annotated_seqlets --gene_list_path <gene_list_path> --attrib_path <results_save_dir>rsagenet_model/gradients/grads.npy` --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>
+
+
 
 
 
