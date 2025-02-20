@@ -40,10 +40,10 @@ r-SAGE-net save gradients:
 `$python attributions.py --which_fn save_ref_seq_gradients --ckpt_path <ckpt_path> --results_save_dir <results_save_dir> --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path> --model_type rsagenet --predixcan_res_path <predixcan_res_path>`
 
 p-SAGE-net annotate seqlets:   
-`$python attributions.py --which_fn mult_gene_save_annotated_seqlets --gene_list_path <gene_list_path> --attrib_path <results_save_dir>psagenet_model/gradients/personal_seq_1_idx_grads.npy` --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>
+`$python attributions.py --which_fn mult_gene_save_annotated_seqlets --gene_list_path <gene_list_path> --attrib_path <results_save_dir>psagenet_model/gradients/personal_seq_1_idx_grads.npy --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>` 
 
 r-SAGE-net annotate seqlets:   
-`$python attributions.py --which_fn mult_gene_save_annotated_seqlets --gene_list_path <gene_list_path> --attrib_path <results_save_dir>rsagenet_model/gradients/grads.npy` --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>
+`$python attributions.py --which_fn mult_gene_save_annotated_seqlets --gene_list_path <gene_list_path> --attrib_path <results_save_dir>rsagenet_model/gradients/grads.npy --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>` 
 
 ## data.py 
 - Initialize PersonalGenomeDataset (from reference genome, WGS data, and expression data), ReferenceGenomeDataset (from reference genome, expression data), or VariantDataset (from reference genome, variant information).
