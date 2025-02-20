@@ -7,5 +7,5 @@ This directory contains code used to create figures.
 - Plot model performance figures (all other figures).
 
 ## plot_results.py
-- Contains functions used to save correlations from model evaluations and save boxplots figures for a given list of paths (used in plot_performance.figs.ipynb). 
+- Contains functions used to save correlations from model evaluations and save boxplots figures for a given list of paths (used in `plot_performance.figs.ipynb`). 
   
