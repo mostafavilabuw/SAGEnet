@@ -200,7 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', default='')
     parser.add_argument('--lam_diff', default=1,type=float)
     parser.add_argument('--lam_ref', default=1,type=float)
-    parser.add_argument('--zscore', default=0,type=int)
+    parser.add_argument('--zscore', default=1,type=int)
     parser.add_argument('--only_snps', default=0,type=int)
     parser.add_argument('--maf_threshold', default=-1,type=float)
     parser.add_argument('--tss_data_path', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/gene-ids-and-positions.tsv')
