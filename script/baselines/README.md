@@ -7,7 +7,7 @@ This directory contains code for the baselines used: Enformer, PrediXcan, r-SAGE
 - Save Enformer's train, validation, and test sets based on data from `https://console.cloud.google.com/storage/browser/basenji_barnyard/data`
 
 ## predixcan/predixcan.py 
-- Train PrediXcan (elastic net) model on ROSMAP training individuals, evaluate on ROSMAP train/validation/test individual and GTEx individuals.
+- Train PrediXcan (elastic net) model on ROSMAP training individuals, evaluate on ROSMAP train/validation/test individuals and GTEx individuals.
 
   After defining your paths: 
 `<results_save_dir>,<gene_list_path>,<sub_list_dir>,<rosmap_vcf_path>,<gtex_vcf_path>,<hg38_file_path>,<rosmap_expr_data_path>,<tss_data_path>`  
