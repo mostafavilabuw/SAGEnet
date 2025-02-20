@@ -1,7 +1,7 @@
 This directory contains the SAGEnet editable package. 
 
 ## attributions.py 
-- Save attributions (gradients or ISM) and use tangermeme functions to identify seqlets and match identified seqlest to motif database.
+- Save attributions (gradients or ISM) and use tangermeme functions to identify seqlets and match identified seqlets to motif database.
 
 #### ISM example (Fig. S3-S5) 
 After defining your paths: 
