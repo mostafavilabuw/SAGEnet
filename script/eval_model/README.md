@@ -4,7 +4,7 @@ This directory contains code to evaluate p-SAGE-net, r-SAGE-net, and Enformer.
 - Contains scripts to evaluate p-SAGE-net models with different combinations of hyperparameters. Each calls `run_eval_model.sh`.
 
 ## eval_model.py 
-- Eval p-SAGE-net, r-SAGE-net, or Enformer model.
+- Evaluate p-SAGE-net, r-SAGE-net, or Enformer model on personal sequence or reference sequence.
 
 To evaluate a model, define your paths:  
  `<ckpt_path>,<results_save_dir>,<tss_data_path>,<hg38_file_path>,<predixcan_res_path>,<vcf_file_path>,<sub_data_dir>`  
