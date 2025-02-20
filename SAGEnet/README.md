@@ -53,34 +53,34 @@ First, import SAGEnet.data:
 
 #### PersonalGenomeDataset 
 After defining your paths: 
-<hg38_file_path>,<vcf_file_path> 
+`<hg38_file_path>,<vcf_file_path>` 
 
 And loading in your:  
-<sample_list> (list of sample names as they appear in the VCF),  
-<gene_metadata> (DataFrame of gene metadata containing the columns "chr", "tss", and "strand"),    
-<expr_data> (DataFrame of expression data indexed by gene names, with sample names as columns),  
+`<sample_list>` (list of sample names as they appear in the VCF),  
+`<gene_metadata>` (DataFrame of gene metadata containing the columns "chr", "tss", and "strand"),    
+`<expr_data>` (DataFrame of expression data indexed by gene names, with sample names as columns),  
 
 Initialize the PersonalGenomeDataset with:   
 `personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=<gene_metadata>, vcf_file_path=<vcf_file_path>, hg38_file_path=<hg38_file_path>, sample_list=<sample_list>, expr_data=<expr_data>)`
 
 #### ReferenceGenomeDataset 
 After defining your paths: 
-<hg38_file_path>
+`<hg38_file_path>`
 
 And loading in your:  
-<gene_metadata> (DataFrame of gene metadata containing the columns "chr", "tss", and "strand"),    
-<expr_data> (DataFrame of expression data indexed by gene names, with sample names as columns),  
+`<gene_metadata>` (DataFrame of gene metadata containing the columns "chr", "tss", and "strand"),    
+`<expr_data>` (DataFrame of expression data indexed by gene names, with sample names as columns),  
 
 Initialize the ReferenceGenomeDataset with:   
 `reference_dataset = SAGEnet.data.ReferenceGenomeDataset(gene_metadata=<gene_metadata>, hg38_file_path=<hg38_file_path>, expr_data=<expr_data>)`
 
 #### VariantDataset 
 After defining your paths: 
-<hg38_file_path>
+`<hg38_file_path>`
 
 And loading in your:  
-<gene_metadata> (DataFrame of gene metadata containing the columns "chr", "tss", and "strand"),    
-<variant_info> (DataFrame of variant info containing the columns "gene", "chr", "pos", "ref", "alt"),  
+`<gene_metadata>` (DataFrame of gene metadata containing the columns "chr", "tss", and "strand"),    
+`<variant_info>` (DataFrame of variant info containing the columns "gene", "chr", "pos", "ref", "alt"),  
 
 Initialize the ReferenceGenomeDataset with:   
 `variant_dataset = SAGEnet.data.VariantDataset(gene_metadata=<gene_metadata>, hg38_file_path=<hg38_file_path>, variant_info=<variant_info>)`
