@@ -16,9 +16,11 @@ cd SAGEnet
 pip install -e .
 ```
 After these steps, you can import SAGEnet to access code from the files within the SAGEnet package (attributions.py, data.py, enformer.py, models.py, nn.py, plot.py, tools.py).    
-For example,  
+
+For example,    
+
 After defining your paths: 
-`<hg38_file_path>,<vcf_file_path>` 
+`<hg38_file_path>,<vcf_file_path>`   
 
 And loading in your:  
 `<sample_list>` (list of sample names as they appear in the VCF),  
