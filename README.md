@@ -1,6 +1,6 @@
 # SAGE-net
 
-This repository contains the software package described in the paper  "A scalable approach to investigating sequence-to-expression prediction from personal genomes" and the scripts to reproduce the paper's analyses. For descriptions of each file and instructions on how to reproduce our analyses and run your own, see the READMEs in each directory. 
+This repository contains the software package described in the paper  "A scalable approach to investigating sequence-to-expression prediction from personal genomes" (https://doi.org/10.1101/2025.02.21.639494) and the scripts to reproduce the paper's analyses. For descriptions of each file and instructions on how to reproduce our analyses and run your own, see the READMEs in each directory. 
 
 ## Installation 
 To get started, clone the repository and install the required dependencies:
