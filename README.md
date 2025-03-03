@@ -18,8 +18,8 @@ pip install -e .
 After these steps, you can import SAGEnet to access code from the files within the SAGEnet package (attributions.py, data.py, enformer.py, models.py, nn.py, plot.py, tools.py).    
 
 For example, to initailize a PersonalGenomeDataset,  
-You first need to download the hg38 reference genome as `input_data/hg38.fa` using `input_data/download_genome.sh`.  
-We provide toy data in `input_data/example_data/` to demonstrate required data formats. Using this directory, you can define your paths:  
+You first need to download the hg38 reference genome as `'input_data/hg38.fa'` using `input_data/download_genome.sh`.  
+We provide toy data in `'input_data/example_data/'` to demonstrate required data formats. Using this directory, you can define your paths:  
 `hg38_file_path='input_data/hg38.fa'`  
 `example_vcf_file_path='input_data/example_data/example_vcf.vcf.gz'`    
 
