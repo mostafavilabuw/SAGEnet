@@ -19,7 +19,8 @@ After these steps, you can import SAGEnet to access code from the files within t
 
 For example, to initailize a PersonalGenomeDataset,  
 You first need to download the hg38 reference genome as `'input_data/hg38.fa'` using `input_data/download_genome.sh`.  
-We provide toy data in `'input_data/example_data/'` to demonstrate required data formats. Using this directory, you can define your paths:  
+We provide toy data in `'input_data/example_data/'` to demonstrate required data formats. 
+Using this directory, you can define your paths:    
 `hg38_file_path='input_data/hg38.fa'`  
 `example_vcf_file_path='input_data/example_data/example_vcf.vcf.gz'`    
 
@@ -29,12 +30,12 @@ Load your data:
 `gene_meta_info = pd.read_csv(tss_data_path, sep='\t')`  (DataFrame of gene metadata containing the columns 'chr', 'tss', and 'strand')  
 
 And select gene meta information for an example gene (for which variant data is provided in `example_vcf_file_path`):   
-`sel_gene_meta_info=gene_meta_info[gene_meta_info['gene_id']=='ENSG00000013573']`
+`example_gene_meta_info=gene_meta_info[gene_meta_info['gene_id']=='ENSG00000013573']`
 
 After this, you can initialize a PersonalGenomeDataset by running:  
 ```
 import SAGEnet.data  
-personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=<gene_metadata>, vcf_file_path=<vcf_file_path>, hg38_file_path=<hg38_file_path>, sample_list=<sample_list>, expr_data=<expr_data>)
+personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=example_gene_meta_info, vcf_file_path=example_vcf_file_path, hg38_file_path=hg38_file_path, sample_list=example_individuals, expr_data=example_expression_data)
 ```
 
 For more examples, see the READMEs in each directory. 
