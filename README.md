@@ -24,10 +24,10 @@ Using this directory, you can define your paths:
 `hg38_file_path='input_data/hg38.fa'`  
 `example_vcf_file_path='input_data/example_data/example_vcf.vcf.gz'`    
 
-Load your data: 
-`example_individuals = np.loadtxt('input_data/example_data/example_individuals.csv',delimiter=',',dtype=str)` (list of sample names as they appear in the VCF)   
-`example_expression_data = pd.read_csv('input_data/example_data/example_expression.csv',index_col=0)` (DataFrame of expression data indexed by gene names, with sample names as columns) 
-`gene_meta_info = pd.read_csv(tss_data_path, sep='\t')`  (DataFrame of gene metadata containing the columns 'chr', 'tss', and 'strand')  
+Load your data:   
+`example_individuals = np.loadtxt('input_data/example_data/example_individuals.csv',delimiter=',',dtype=str)` (list of sample names as they appear in the VCF)     
+`example_expression_data = pd.read_csv('input_data/example_data/example_expression.csv',index_col=0)` (DataFrame of expression data indexed by gene names, with sample names as columns)   
+`gene_meta_info = pd.read_csv(tss_data_path, sep='\t')`  (DataFrame of gene metadata containing the columns 'chr', 'tss', and 'strand')    
 
 And select gene meta information for an example gene (for which variant data is provided in `example_vcf_file_path`):   
 `example_gene_meta_info=gene_meta_info[gene_meta_info['gene_id']=='ENSG00000013573']`
