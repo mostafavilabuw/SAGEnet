@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##contig=<ID=chr12,length=248956422>
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1	SAMPLE2	SAMPLE3
+chr12	31073795	.	C	T	80	PASS	DP=110	GT:DP	0/0:70	1/1:60	0/1:55
+chr12	31073865	.	TCC	A	50	PASS	DP=100	GT:DP	0/1:50	1/1:40	0/0:45
+chr12	31073885	.	GG	AAA	60	PASS	DP=120	GT:DP	0/0:60	0/1:50	1/1:55
+chr12	31073905	.	T	G	70	PASS	DP=90	GT:DP	1/1:30	0/1:40	0/0:50
