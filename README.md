@@ -40,7 +40,7 @@ personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=example_gene
 
 Each item in `personal_dataset` will be a tuple containing:   
 - One-hot-encoded tensor of genomic sequence of shape `[2,8,40000]`. This contains personal genomic sequence from each haplotype (maternal: `[0,:4,:]`, paternal: `[0,4:,:]`) and reference sequence (`[1,:,:]`). 
-- Expression tensor containing `[mean expression, personal difference of mean expression]`  
+- Expression tensor containing [mean expression, personal difference from mean expression]  
 - Gene index 
 - Sample index    
 Note that these outputs (ex, sequence length, how to return personal expression) are customisable, see `SAGEnet/data.py ` documentation for details.
