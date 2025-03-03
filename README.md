@@ -17,17 +17,21 @@ pip install -e .
 ```
 After these steps, you can import SAGEnet to access code from the files within the SAGEnet package (attributions.py, data.py, enformer.py, models.py, nn.py, plot.py, tools.py).    
 
-For example,    
+For example, to initailize a PersonalGenomeDataset,  
+You first need to download the hg38 reference genome as `input_data/hg38.fa` using `input_data/download_genome.sh`.  
+We provide toy data in `input_data/example_data/` to demonstrate required data formats. Using this directory, you can define your paths:  
+`hg38_file_path=input_data/hg38.fa`  
+`example_vcf_file_path=input_data/example_data/example_vcf.vcf.gz`    
 
-After defining your paths: 
-`<hg38_file_path>,<vcf_file_path>`   
+Load your data: 
+`example_individuals = np.loadtxt('input_data/example_data/example_individuals.csv',delimiter=',',dtype=str)` (list of sample names as they appear in the VCF)   
+`example_expression_data = pd.read_csv('input_data/example_data/example_expression.csv',index_col=0)` (DataFrame of expression data indexed by gene names, with sample names as columns) 
+`gene_meta_info = pd.read_csv(tss_data_path, sep="\t")`  (DataFrame of gene metadata containing the columns "chr", "tss", and "strand")  
 
-And loading in your:  
-`<sample_list>` (list of sample names as they appear in the VCF),  
-`<gene_metadata>` (DataFrame of gene metadata containing the columns "chr", "tss", and "strand"),    
-`<expr_data>` (DataFrame of expression data indexed by gene names, with sample names as columns),  
+And select gene meta information for an example gene (for which variant data is provided in `example_vcf_file_path`):   
+`sel_gene_meta_info=gene_meta_info[gene_meta_info['gene_id']=='ENSG00000013573']`
 
-You can initialize a PersonalGenomeDataset by running:  
+After this, you can initialize a PersonalGenomeDataset by running:  
 ```
 import SAGEnet.data  
 personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=<gene_metadata>, vcf_file_path=<vcf_file_path>, hg38_file_path=<hg38_file_path>, sample_list=<sample_list>, expr_data=<expr_data>)
