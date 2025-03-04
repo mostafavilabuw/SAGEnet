@@ -33,7 +33,7 @@ Load your data:
 And select gene meta information for an example gene (for which variant data is provided in `example_vcf_file_path`):   
 `example_gene_meta_info=gene_meta_info[gene_meta_info['gene_id']=='ENSG00000013573']`
 
-After this, you can initialize a PersonalGenomeDataset by running:  
+After this, you can initialize a PersonalGenomeDataset with:
 ```
 import SAGEnet.data  
 personal_dataset = SAGEnet.data.PersonalGenomeDataset(gene_metadata=example_gene_meta_info, vcf_file_path=example_vcf_file_path, hg38_file_path=hg38_file_path, sample_list=example_individuals, expr_data=example_expression_data)
