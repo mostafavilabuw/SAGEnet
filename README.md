@@ -9,9 +9,10 @@ git clone git@github.com:mostafavilabuw/SAGEnet.git
 cd SAGEnet
 mamba env create -f environment.yml
 mamba activate SAGEnet
+```
 
 Mamba is a faster implementation of the conda package manager. If you don't already have mamba installed, you can install it using conda (https://anaconda.org/conda-forge/mamba) or use conda instead. 
-```
+
 Then, install the editable package: 
 ```bash
 cd SAGEnet
