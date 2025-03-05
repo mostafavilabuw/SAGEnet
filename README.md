@@ -48,7 +48,7 @@ Each item in `personal_dataset` will be a tuple containing:
 - Gene index 
 - Sample index      
 
-Note that these outputs (ex, sequence length, how to return personal expression) are customisable, see `SAGEnet/data.py` documentation for details.
+Note that these outputs (for example, sequence length, how to return personal expression) are customisable, see `SAGEnet/data.py` documentation for details.
 There should be no lag time when iterating through the PersonalGenomeDataset.  
 
 For more examples, see the READMEs in each directory. 
