@@ -18,6 +18,8 @@ Then, install the editable package:
 cd SAGEnet
 pip install -e .
 ```
+
+## Example Use 
 After these steps, you can import SAGEnet to access code from the files within the SAGEnet package (attributions.py, data.py, enformer.py, models.py, nn.py, plot.py, tools.py).    
 
 For example, to initailize a PersonalGenomeDataset:   
