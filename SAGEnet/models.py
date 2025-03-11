@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim 
 import pandas as pd
 import scipy.stats
-from SAGEnet.nn import ConvBlock, MambaBlock, TransformerBlock, Residual
+from SAGEnet.nn import ConvBlock, TransformerBlock, Residual
 import pytorch_lightning as pl
 
 def calculate_correlations(self, outputs):
