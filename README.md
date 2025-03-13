@@ -6,7 +6,6 @@ This repository contains the software package described in the paper  "A scalabl
 To get started, clone the repository and install the required dependencies:
 ```bash
 git clone git@github.com:mostafavilabuw/SAGEnet.git
-cd SAGEnet
 mamba env create -f environment.yml
 mamba activate SAGEnet
 ```
@@ -15,7 +14,6 @@ Mamba is a faster implementation of the conda package manager. If you don't alre
 
 Then, install the editable package: 
 ```bash
-cd SAGEnet
 pip install -e .
 ```
 
