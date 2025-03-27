@@ -9,7 +9,7 @@ import scipy.stats
 from SAGEnet.nn import ConvBlock, TransformerBlock, Residual
 import pytorch_lightning as pl
 
-def calculate_correlations(self, outputs):
+def calculate_correlations(outputs):
     """
     Computes Pearson correlation coefficients between predicted and actual values across genes and samples. This function computes correlation coefficients separately for each gene (across individuals) and for each sample (across genes). It returns two DataFrames containing correlation results.
 
@@ -482,6 +482,7 @@ class pSAGEnet(Base):
         super().__init__()
         
         self.split_expr=split_expr
+        self.model_save_dir=model_save_dir
         self.save_hyperparameters()
         
         # initialize training/validation metrics 
