@@ -18,8 +18,8 @@ Then, install the SAGEnet editable package:
 ```bash
 pip install -e .
 ```
-By installing SAGEnet as an editable package, you can make your own changes to the source code (i.e., files within the `SAGEnet` directory), and these changes will be reflected in your project without having to reinstall the package.   
-When you import SAGEnet in any file, you can access code from the files within the SAGEnet package (attributions.py, data.py, enformer.py, models.py, nn.py, plot.py, tools.py).    
+By installing SAGEnet as an editable package, you can make your own changes to the source code (i.e., files within the SAGEnet directory), and these changes will be reflected in your project without having to reinstall the package.   
+When you import SAGEnet at the top of any file, you can access code from the files within the SAGEnet package (attributions.py, data.py, enformer.py, models.py, nn.py, plot.py, tools.py).    
 
 ## Repository Structure 
 - `SAGEnet/` - package source code 
