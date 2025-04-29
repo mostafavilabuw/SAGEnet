@@ -22,7 +22,7 @@ By installing SAGEnet as an editable package, you can make your own changes to t
 
 ## Repository Structure 
 - `SAGEnet/` - package source code 
-  - `model.py` - model architectures (rSAGEnet,pSAGEnet)  
+  - `model.py` - model architectures (rSAGEnet, pSAGEnet)  
   - `data.py` - custom datasets (PersonalGenomeDataset, ReferenceGenomeDataset, VariantDataset)
   - `enformer.py` - use the Enformer model 
   - `attributions.py` - save model attributions, identify seqlets, match identified seqlets to motif database 
