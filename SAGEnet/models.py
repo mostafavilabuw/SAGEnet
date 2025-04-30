@@ -472,7 +472,7 @@ class pSAGEnet(Base):
         - increasing_dilation: Boolean, whether or not to exponentially increase dilation in dilated_conv_layers (or keep at 2).  
         - lam_dff: Float, weight on "difference" component of loss function (idx 1).  
         - lam_ref: Float, weight on "mean" component of loss function (idx 0).  
-        - split_expr: Boolean, if True, model "difference" output (idx 1) is predicted straight from personal sequence (no intermediate subtraction with reference).  
+        - split_expr: Boolean, if False, model "difference" output (idx 1) is predicted straight from personal sequence (no intermediate subtraction with reference).  
         - start_from_ref: Boolean, whether model was initialized with weights from r-SAGE-net (for tracking model runs with wandb). 
         - num_top_train_genes: Integer gene set size from which to select train genes (for tracking model runs with wandb). 
         - num_top_val_genes: Integer gene set size from which to select validation genes (for tracking model runs with wandb). 
