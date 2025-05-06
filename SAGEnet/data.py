@@ -436,9 +436,11 @@ class PersonalGenomeDataset(Dataset):
         tss_pos = gene_info["tss"]
         pos_start = max(0, tss_pos - self.input_len // 2)
         pos_end = min(self.genome.get_reference_length(f"chr{chr}"), tss_pos + self.input_len // 2)
-    
+
         records_list = SAGEnet.tools.get_records_list(chr, pos_start, pos_end, contig_prefix=self.contig_prefix,vcf_file_path=self.vcf_file_path,hg38_file_path=self.hg38_file_path)
-        vcf_of_sample = [record for record in records_list if record.samples[sample_of_interest]["GT"] != (0, 0) and record.samples[sample_of_interest]["GT"] != (None, None)]             
+        #print(f'len(records_list):{len(records_list)}')
+        vcf_of_sample = [record for record in records_list if record.samples[sample_of_interest]["GT"] != (0, 0) and record.samples[sample_of_interest]["GT"] != (None, None)]                     
+        #print(vcf_of_sample)
         sequence = self.genome.fetch(f"chr{chr}", pos_start, pos_end)
         return self.modify_sequences_based_on_vcf(sequence, vcf_of_sample, sample_of_interest, pos_start), sequence
 
@@ -459,10 +461,14 @@ class PersonalGenomeDataset(Dataset):
                 position = record.pos - seq_start + shift - 1
                 ref_allele = record.ref.upper()
 
-                if GT[idx]==None: # genotype is missing/unknown due to tech issues
-                    allele_index = 0
-                else:
-                    allele_index = int(GT[idx])  # 0 for ref, 1 or greater for alt
+                try:
+                    allele = GT[idx]
+                    if allele is None:
+                        allele_index = 0
+                    else:
+                        allele_index = int(allele)
+                except IndexError:
+                    allele_index = 0  # fallback if GT has only one allele
                     
                 alt_allele = (
                     ref_allele
