@@ -6,7 +6,7 @@ For descriptions of each file and instructions on how to reproduce our analyses 
 For a notebook tutorials, see `example_nodebooks/`. `GEUVADIS_example.ipynb` is a fully runnable notebook that goes through dataset creation and model training with the publicly available GEUVADIS dataset [[2]](#2), using expression data preprocessed by Rastogi et al. [[3]](#3). `example_usage.ipynb` uses toy data provided in this repo to describe the inputs required to create your own datset. It details important parameters to change to make SAGEnet fit your needs, and walks through the process we use to train models on the ROSMAP dataset.  
 
 ## Getting started  
-To get started, clone the repository and install the required dependencies:
+First, clone the repository and install the required dependencies:
 ```bash
 git clone git@github.com:mostafavilabuw/SAGEnet.git
 mamba env create -f environment.yml
