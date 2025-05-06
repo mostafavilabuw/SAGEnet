@@ -51,7 +51,7 @@ _A key promise of sequence-to-function (S2F) models is their ability to evaluate
 ## References
 
 <a id="1">[1]</a> 
-Spiro AE\*, Tu X, Sheng Y\*, Sasse A, Hosseini R, Chikina M, et al. A scalable approach to investigating sequence-to-expression prediction from personal genomes [Internet]. bioRxiv; 2025 [cited 2025 Feb 26]. p. 2025.02.21.639494. Available from: https://www.biorxiv.org/content/10.1101/2025.02.21.639494v2, \* These authors contributed equally
+Spiro AE\*, Tu X\*, Sheng Y, Sasse A, Hosseini R, Chikina M, et al. A scalable approach to investigating sequence-to-expression prediction from personal genomes [Internet]. bioRxiv; 2025 [cited 2025 Feb 26]. p. 2025.02.21.639494. Available from: https://www.biorxiv.org/content/10.1101/2025.02.21.639494v2, \* These authors contributed equally
 
 <a id="2">[2]</a>
 Lappalainen T, Sammeth M, Friedländer MR, ‘t Hoen PAC, Monlong J, Rivas MA, et al. Transcriptome and genome sequencing uncovers functional variation in humans. Nature. 2013 Sep;501(7468):506–11. 
