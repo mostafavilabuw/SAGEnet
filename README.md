@@ -2,6 +2,7 @@
 
 This repository contains the software package described in the paper  "A scalable approach to investigating sequence-to-expression prediction from personal genomes" (https://doi.org/10.1101/2025.02.21.639494) and the scripts to reproduce the paper's analyses.  
 For descriptions of each file and instructions on how to reproduce our analyses and run your own, see the READMEs in each directory.    
+
 For a notebook tutorials, see `example_nodebooks/`. `GEUVADIS_example.ipynb` is a fully runnable notebook that goes through dataset creation and model training with the publicly available GEUVADIS dataset. `example_usage.ipynb` uses toy data provided in this repo to describe the inputs required to create your own datset. It details important parameters to change to make SAGEnet fit your needs, and walks through the process we use to train models on the ROSMAP dataset.  
 
 ## Installation 
