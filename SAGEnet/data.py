@@ -107,10 +107,14 @@ def modify_personal_seqs_from_records_list(seq, records_list, sample_of_interest
             position = record.pos - seq_start_pos + shift - 1
             ref_allele = record.ref.upper()
 
-            if GT[idx]==None: # genotype is missing/unknown due to tech issues
-                allele_index = 0
-            else:
-                allele_index = int(GT[idx])  # 0 for ref, 1 or greater for alt
+            try:
+                allele = GT[idx]
+                if allele is None:
+                    allele_index = 0
+                else:
+                    allele_index = int(allele)
+            except IndexError:
+                allele_index = 0  # fallback if GT has only one allele
                 
             alt_allele = (
                 ref_allele
@@ -156,7 +160,7 @@ def modify_personal_seqs_from_records_list(seq, records_list, sample_of_interest
     return maternal_sequence, paternal_sequence
 
 
-def get_personal_tensor(sample_of_interest, region, metadata, input_len, hg38_file_path, contig_prefix, vcf_file_path, train_subs, train_subs_vcf_file_path, only_snps, maf_min,maf_max,allow_reverse_complement):
+def get_personal_tensor(sample_of_interest, region, metadata, input_len, hg38_file_path, contig_prefix, vcf_file_path, train_subs, train_subs_vcf_file_path, only_snps, maf_min,maf_max,allow_reverse_complement,verbose):
    
     '''
     Gets maternal and paternal DNA sequences based on variant information for a given individual. Returns these sequences as stacked one-hot encoded tensors.
@@ -171,7 +175,7 @@ def get_personal_tensor(sample_of_interest, region, metadata, input_len, hg38_fi
     records_list = [record for record in all_records_list if record.samples[sample_of_interest]["GT"] != (0, 0) and record.samples[sample_of_interest]["GT"] != (None, None)]                       
     ref_sequence_for_personal=get_reference_sequence(chr, pos_start, pos_end, majority_seq=False,subs_to_consider=train_subs,hg38_file_path=hg38_file_path,contig_prefix=contig_prefix,vcf_file_path=train_subs_vcf_file_path) 
     
-    maternal_seq, paternal_seq = modify_personal_seqs_from_records_list(ref_sequence_for_personal, records_list, sample_of_interest, pos_start,only_snps=only_snps, maf_min=maf_min, maf_max=maf_max,train_subs_vcf_file_path=train_subs_vcf_file_path,train_subs=train_subs)
+    maternal_seq, paternal_seq = modify_personal_seqs_from_records_list(ref_sequence_for_personal, records_list, sample_of_interest, pos_start,only_snps=only_snps, maf_min=maf_min, maf_max=maf_max,train_subs_vcf_file_path=train_subs_vcf_file_path,train_subs=train_subs,verbose=verbose)
     maternal_seq = maternal_seq[0 : input_len]
     paternal_seq = paternal_seq[0 : input_len]
 
@@ -458,7 +462,8 @@ class PersonalGenomeDataset(Dataset):
         allow_reverse_complement=True,
         only_personal=False,
         median_or_mean_y_data='mean',
-        majority_seq=False
+        majority_seq=False,
+        verbose=False
     ):
         """
         Initialize the PersonalGenomeDataset object.
@@ -505,6 +510,7 @@ class PersonalGenomeDataset(Dataset):
         self.only_personal=only_personal
         self.median_or_mean_y_data=median_or_mean_y_data
         self.majority_seq=majority_seq
+        self.verbose=verbose
         
         if train_subs_y_data is None: 
             self.train_subs_y_data=y_data
@@ -562,7 +568,7 @@ class PersonalGenomeDataset(Dataset):
             rc=False
         ref_encoded = onehot_encoding(ref_sequence, self.input_len, reverse_complement=rc,allow_reverse_complement=self.allow_reverse_complement)
 
-        personal_sequence_tensor = get_personal_tensor(sample_of_interest, region,self.metadata, self.input_len, self.hg38_file_path,self.contig_prefix,self.vcf_file_path,self.train_subs,self.train_subs_vcf_file_path,self.only_snps,self.maf_min,self.maf_max,self.allow_reverse_complement)
+        personal_sequence_tensor = get_personal_tensor(sample_of_interest, region,self.metadata, self.input_len, self.hg38_file_path,self.contig_prefix,self.vcf_file_path,self.train_subs,self.train_subs_vcf_file_path,self.only_snps,self.maf_min,self.maf_max,self.allow_reverse_complement,verbose=self.verbose)
 
         if self.y_data is not None: 
         
