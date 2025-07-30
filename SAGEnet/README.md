@@ -28,7 +28,7 @@ Enformer, do not insert variant:
 `$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type enformer --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --finetuned_weights_dir <finetuned_weights_dir>` 
 
 ## data.py 
-- Initialize PersonalGenomeDataset (from reference genome, WGS data, and y data), ReferenceGenomeDataset (from reference genome, y data), or VariantDataset (from reference genome, variant information). Y data can be any output measured per-individaul -- we use gene expression and DNA methylaiton in our analyses.
+- Initialize PersonalGenomeDataset (from reference genome, WGS data, and y data), ReferenceGenomeDataset (from reference genome, y data), or VariantDataset (from reference genome, variant information). Y data can be any output measured per-individaul -- we use gene expression and DNA methylation in our analyses.
 
 First, import SAGEnet.data: 
 `import SAGEnet.data`
