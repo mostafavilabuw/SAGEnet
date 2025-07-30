@@ -59,7 +59,7 @@ def predixcan(results_save_dir, gene_list_path, sub_list_dir, maf_threshold, inp
             pos_end = tss_pos + input_len//2
             
             # get variant info for this gene 
-            rosmap_all_features, rosmap_pos, rosmap_ref, rosmap_alt =  SAGEnet.tools.get_variant_info(curr_chr, pos_start,pos_end, rosmap_all_subs,contig_prefix='',vcf_file_path=rosmap_vcf_path,hg38_file_path=hg38_file_path, maf_threshold=maf_threshold, train_subs_vcf_path=rosmap_vcf_path,train_subs=rosmap_train_subs, train_subs_contig_prefix='') # rosmap_all_features is (num subs x num features) 
+            rosmap_all_features, rosmap_pos, rosmap_ref, rosmap_alt =  SAGEnet.tools.get_variant_info(curr_chr, pos_start,pos_end, rosmap_all_subs,contig_prefix='',vcf_file_path=rosmap_vcf_path,hg38_file_path=hg38_file_path, maf_min=maf_threshold, train_subs_vcf_path=rosmap_vcf_path,train_subs=rosmap_train_subs, train_subs_contig_prefix='') # rosmap_all_features is (num subs x num features) 
             
             if len(rosmap_all_features)==0: 
                 print('no variants present, skipping gene')

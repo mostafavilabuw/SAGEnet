@@ -71,8 +71,8 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     expr_data = pd.read_csv(expr_data_path, index_col=0)
     
     # get gene lists 
-    train_gene_list = SAGEnet.tools.select_gene_set(predixcan_res_path=predixcan_res_path, rand_genes=rand_genes, top_genes_to_consider=top_genes_to_consider,seed=seed, num_genes=num_top_train_genes,gene_idx_start=gene_idx_start) 
-    val_gene_list = SAGEnet.tools.select_gene_set(predixcan_res_path=predixcan_res_path, rand_genes=rand_genes, top_genes_to_consider=top_genes_to_consider,seed=seed, num_genes=num_top_val_genes,gene_idx_start=gene_idx_start) 
+    train_gene_list = SAGEnet.tools.select_region_set(enet_path=predixcan_res_path, rand_regions=rand_genes, top_regions_to_consider=top_genes_to_consider,seed=seed, num_regions=num_top_train_genes,region_idx_start=gene_idx_start) 
+    val_gene_list = SAGEnet.tools.select_region_set(enet_path=predixcan_res_path, rand_regions=rand_genes, top_regions_to_consider=top_genes_to_consider,seed=seed, num_regions=num_top_val_genes,region_idx_start=gene_idx_start) 
 
     # only include genes that are present in the expression data 
     train_gene_list = np.array([gene for gene in train_gene_list if gene in expr_data.index])
@@ -102,9 +102,9 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     else: 
         zscores = None
 
-    train_dataset = PersonalGenomeDataset(gene_metadata=train_gene_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, expr_data=expr_data, sample_list=sel_train_subs,expr_data_zscore=zscores,train_subs=train_subs, input_len=input_len,only_snps=only_snps,split_expr=split_expr,maf_threshold=maf_threshold,train_subs_vcf_file_path=vcf_file_path,train_subs_expr_data=expr_data,allow_reverse_complement=allow_reverse_complement)
-    val_subs_dataset = PersonalGenomeDataset(gene_metadata=train_gene_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, expr_data=expr_data, sample_list=val_subs,expr_data_zscore=zscores,train_subs=train_subs, input_len=input_len,only_snps=only_snps,split_expr=split_expr,maf_threshold=maf_threshold,train_subs_vcf_file_path=vcf_file_path,train_subs_expr_data=expr_data,allow_reverse_complement=allow_reverse_complement)
-    val_genes_dataset = PersonalGenomeDataset(gene_metadata=val_gene_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, expr_data=expr_data, sample_list=val_subs, expr_data_zscore=zscores,train_subs=train_subs, input_len=input_len,only_snps=only_snps,split_expr=split_expr,maf_threshold=maf_threshold,train_subs_vcf_file_path=vcf_file_path,train_subs_expr_data=expr_data,allow_reverse_complement=allow_reverse_complement)
+    train_dataset = PersonalGenomeDataset(metadata=train_gene_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, y_data=expr_data, sample_list=sel_train_subs,y_data_zscore=zscores,train_subs=train_subs, input_len=input_len,only_snps=only_snps,split_y_data=split_expr,maf_min=maf_threshold,train_subs_vcf_file_path=vcf_file_path,train_subs_y_data=expr_data,allow_reverse_complement=allow_reverse_complement)
+    val_subs_dataset = PersonalGenomeDataset(metadata=train_gene_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, y_data=expr_data, sample_list=val_subs,y_data_zscore=zscores,train_subs=train_subs, input_len=input_len,only_snps=only_snps,split_y_data=split_expr,maf_min=maf_threshold,train_subs_vcf_file_path=vcf_file_path,train_subs_y_data=expr_data,allow_reverse_complement=allow_reverse_complement)
+    val_genes_dataset = PersonalGenomeDataset(metadata=val_gene_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, y_data=expr_data, sample_list=val_subs, y_data_zscore=zscores,train_subs=train_subs, input_len=input_len,only_snps=only_snps,split_y_data=split_expr,maf_min=maf_threshold,train_subs_vcf_file_path=vcf_file_path,train_subs_y_data=expr_data,allow_reverse_complement=allow_reverse_complement)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_subs_dataloader = DataLoader(val_subs_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -167,7 +167,7 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     gradient_clip_val=1, 
     logger=wandb_logger, 
     log_every_n_steps=10)
-    my_model = pSAGEnet(lam_diff=lam_diff,lam_ref=lam_ref,start_from_ref=start_from_ref,num_top_train_genes=num_top_train_genes,num_top_val_genes=num_top_val_genes,num_training_subs=num_training_subs,model_save_dir=model_save_dir,h_layers=h_layers,int_layers_kernel_number=int_layers_kernel_number,hidden_size=hidden_size,first_layer_kernel_number=first_layer_kernel_number,block_type=block_type,split_expr=split_expr)
+    my_model = pSAGEnet(lam_diff=lam_diff,lam_ref=lam_ref,start_from_ref=start_from_ref,num_train_regions=num_top_train_genes,num_val_regions=num_top_val_genes,num_training_subs=num_training_subs,model_save_dir=model_save_dir,h_layers=h_layers,int_layers_kernel_number=int_layers_kernel_number,hidden_size=hidden_size,first_layer_kernel_number=first_layer_kernel_number,block_type=block_type,split_y_data=split_expr)
         
     if start_from_ref: 
         print(f'loading rSAGEnet weights from {ref_model_ckpt_path} into pSAGEnet model')

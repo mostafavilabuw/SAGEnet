@@ -149,7 +149,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
                 to_run_gene = unfinished_genes[0]
             print(f"evaluating {to_run_gene}")
             selected_genes_meta = gene_meta_info[gene_meta_info['ensg']==to_run_gene]
-            dataset = PersonalGenomeDataset(gene_metadata=selected_genes_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path,sample_list=subs, input_len=input_len,contig_prefix=contig_prefix,train_subs=train_subs, only_snps=only_snps,maf_threshold=maf_threshold,train_subs_vcf_file_path=train_subs_vcf_file_path,allow_reverse_complement=allow_reverse_complement)
+            dataset = PersonalGenomeDataset(metadata=selected_genes_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path,sample_list=subs, input_len=input_len,contig_prefix=contig_prefix,train_subs=train_subs, only_snps=only_snps,maf_min=maf_threshold,train_subs_vcf_file_path=train_subs_vcf_file_path,allow_reverse_complement=allow_reverse_complement)
             np.save(started_genes_save_dir + to_run_gene, [])
 
             if model_type=='enformer': 

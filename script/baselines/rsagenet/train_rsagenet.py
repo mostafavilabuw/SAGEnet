@@ -27,15 +27,15 @@ def train_ref(batch_size, num_workers, max_epochs, model_save_dir, num_nodes, h_
     train_subs = np.loadtxt(f'{sub_data_dir}ROSMAP/train_subs.csv',delimiter=',',dtype=str)
     expr_data=expr_data.loc[gene_list,train_subs]
 
-    train_genes, val_genes, test_genes = SAGEnet.tools. get_train_val_test_genes(gene_list,tss_data_path=tss_data_path, use_enformer_gene_assignments=use_enformer_gene_assignments,enformer_gene_assignments_path=enformer_gene_assignments_path)
+    train_genes, val_genes, test_genes = SAGEnet.tools.get_train_val_test_genes(gene_list,tss_data_path=tss_data_path, use_enformer_gene_assignments=use_enformer_gene_assignments,enformer_gene_assignments_path=enformer_gene_assignments_path)
     train_genes_meta = gene_meta_info[gene_meta_info['gene_id'].isin(train_genes)]
     val_genes_meta = gene_meta_info[gene_meta_info['gene_id'].isin(val_genes)]
     
     print(f'n train genes: {len(train_genes_meta)}')
     print(f'n val genes: {len(val_genes_meta)}')
     
-    train_dataset = ReferenceGenomeDataset(gene_metadata=train_genes_meta, hg38_file_path=hg38_file_path, expr_data=expr_data, input_len=input_len,allow_reverse_complement=allow_reverse_complement)
-    val_dataset = ReferenceGenomeDataset(gene_metadata=val_genes_meta, hg38_file_path=hg38_file_path, expr_data=expr_data, input_len=input_len,allow_reverse_complement=allow_reverse_complement)
+    train_dataset = ReferenceGenomeDataset(metadata=train_genes_meta, hg38_file_path=hg38_file_path, y_data=expr_data, input_len=input_len,allow_reverse_complement=allow_reverse_complement)
+    val_dataset = ReferenceGenomeDataset(metadata=val_genes_meta, hg38_file_path=hg38_file_path, y_data=expr_data, input_len=input_len,allow_reverse_complement=allow_reverse_complement)
         
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
