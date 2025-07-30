@@ -7,6 +7,9 @@ import logging
 import tangermeme.io
 import tangermeme.seqlet
 import tangermeme.annotate
+import pytorch_lightning as pl
+from torch.utils.data import TensorDataset, DataLoader
+
 import SAGEnet.tools
 from SAGEnet.data import ReferenceGenomeDataset, VariantDataset
 from SAGEnet.enformer import Enformer
@@ -60,106 +63,129 @@ def summarize_seqlet_annotations(results_save_dir,gene_list,motif_match_threshol
     return [num_seqlets, signif_match_num_seqlets, np.concatenate(starts),np.concatenate(signif_match_starts), np.concatenate(motifs),np.concatenate(signif_match_motifs),per_gene_matches]
 
 
-def save_ref_seq_gradients(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_path,device,input_len,model_type,predixcan_res_path,best_ckpt_metric,max_epochs,identify_best_ckpt,rand_genes,top_genes_to_consider,seed,allow_reverse_complement,gene_idx_start):
+def save_ref_attribs(model, dataset,model_type,results_save_dir,attrib_type='grad', device=0,batch_size=12,num_workers=8): 
     """
-    Save gradients for model (pSAGEnet or rSAGEnet) evaluated on reference sequence. 
-    If model is pSAGEnet, save gradients for (personal seq input, model idx 1 output) and (reference seq input, model 0 output). 
+    Save attributions (ISM or gradient) for model (pSAGEnet or rSAGEnet) evaluated on reference sequence. 
+    If model is pSAGEnet, save attributions for (personal seq input, model idx 1 output) and (reference seq input, model 0 output). 
     
     Parameters: 
-    - ckpt_path: String path to either model ckpt to evaluate (if identify_best_ckpt==False) or directory containing model ckpt (if identify_best_ckpt==True). 
-    - results_save_dir: String path to directory in which to save gradients. 
-    - num_genes: Integer number of genes to evaluate. 
-    - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
-    - hg38_file_path: String path to the human genome (hg38) reference file.
+    - model: pl.LightningModule to evaluate (pSAGEnet or rSAGEnet). 
+    - dataset: pytorch Dataset to evaluate (ReferenceGenomeDataset, VariantDataset, or PersonalGenomeDataset).
+    - model_type: String identifying the model type, "psagenet" or "rsagenet". 
+    - results_save_dir: String path to directory in which to save attributions. 
+    - attrib_type: String identifying type of attribution to save, "ism" or "grad" (for gradient). 
     - device: Integer, GPU index. 
-    - input_len: Integer, size of the genomic window for model input. 
-    - model_type: String type of model to evaluate, from {'psagenet', 'rsagenet'}. 
-    - predixcan_res_path: String path to predixcan results DataFrame, to be used to construct ranked gene sets. Must contain the column "val_pearson". 
-    - best_ckpt_metric: Metric used to select best model from ckpt dir, if identify_best_ckpt==True. Can be one of {'train_gene_gene', 'train_gene_sample', 'val_gene_gene', 'val_gene_sample'}. 
-    - rand_genes: Boolean indicating whether or not to randomly select genes (from top_genes_to_consider gene set) to use in model evaluation. If False, select gene set from top-prediXcan ranked genes. 
-    - top_genes_to_consider: Integer, length of prediXcan-ranked top gene set to consider when randomly selecting genes (only relevant if rand_genes==True). 
-    - seed: Integer seed to determine random shuffling of gene set. 
-    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand 
-    - gene_idx_start: Integer index in prediXcan-ranked gene list of first gene to use in model evaluation.
-    - max_epochs: Integer, maximum number of epochs to consider when selecting best model ckpt. Only relevant if identify_best_ckpt==True. 
-    - identify_best_ckpt: Boolean, whether or not to use best_ckpt_metric to select best model ckpt within ckpt_path. If False, ckpt_path is used as best model ckpt path. 
-    
-    Saves: Numpy array of (zero-centered) gradients of shape (num_genes, 4, input_len). 
+    - batch_size: Integer, batch size. 
+    - num_workers: Integer, number of workers. 
+
+    Saves: Numpy array(s) of attributions. 
     """
-    # load model 
-    model_type=model_type.lower()
-    
-    # identify best ckpt from directory based on metric provided 
-    if identify_best_ckpt:
-        ckpt_path = SAGEnet.tools.select_ckpt_path(ckpt_path,max_epochs=max_epochs,best_ckpt_metric=best_ckpt_metric)
-    
-    if model_type=='rsagenet':
-        print('rsagenet model')
-        model = rSAGEnet.load_from_checkpoint(checkpoint_path=ckpt_path,using_personal_dataset=False,predict_from_personal=False)
-    elif model_type=='psagenet':
-        print('psagenet model')
-        model = pSAGEnet.load_from_checkpoint(checkpoint_path=ckpt_path)
-    model=model.to(device).eval()
 
-    # name results_save_dir 
-    if results_save_dir=='':
-        results_save_dir = os.path.dirname(ckpt_path) # by default, save results in the directory containing model ckpt 
-    results_save_dir=f'{results_save_dir}/{model_type}_model/gradients/'
+    print(f'attrib_type:{attrib_type}')
     os.makedirs(results_save_dir, exist_ok=True)
-    
-    # select gene set 
-    gene_list = SAGEnet.tools.select_gene_set(predixcan_res_path=predixcan_res_path, rand_genes=rand_genes, top_genes_to_consider=top_genes_to_consider,seed=seed, num_genes=num_genes,gene_idx_start=gene_idx_start) 
-    print(f"n genes={len(gene_list)}")
-    np.save(results_save_dir+'gene_list',gene_list)
-    
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
-    selected_genes_meta = gene_meta_info.set_index('ensg', drop=False).loc[gene_list]
 
-    # initialize arrays for gradient 
-    if model_type=='psagenet': 
-        ref_seq_0_idx_attribs = np.zeros((len(gene_list),4,input_len))
-        personal_seq_1_idx_attribs = np.zeros((len(gene_list),4,input_len))
-        single_seq=False
-    
-    elif model_type=='rsagenet':
-        attribs = np.zeros((len(gene_list),4,input_len))
-        single_seq=True
+    if model_type=='psagenet': # save attributions for each model output 
+        os.makedirs(f'{results_save_dir}output_idx_0/per_region_attribs/', exist_ok=True)
+        os.makedirs(f'{results_save_dir}output_idx_1/per_region_attribs/', exist_ok=True)
 
-    dataset = ReferenceGenomeDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq)
+    print(f'saving attribs to {results_save_dir}')
+
+    region_list=dataset.metadata.index
 
     for i, data in enumerate(dataset):
-        x, *others=data
         print(i)
+        x, *others=data
         x = x.unsqueeze(0).to(device)
-        x.requires_grad_()
-        model_output = model(x)[0]
-        
-        if model_type=='rsagenet': 
-            model_output.backward()
-            attribs[i,:,:] =x.grad.clone().cpu().numpy()
+        if attrib_type=='ism':
+            # not yet tested 
+            if model_type=='rsagenet' or model_type=='paired_psagenet': 
+                # fill in with ref pred
+                ref_pred = model(x)[0]
+                seq_for_ism=x[0,:,:]
+                attrib=np.zeros(seq_for_ism.shape)
+                attrib[np.where(seq_for_ism==1)[0],np.where(seq_for_ism==1)[1]]=ref_pred
+
+                zero_idxs = torch.where(seq_for_ism== 0) # seq_for_ism is [4,seq_len]
+                nuc_idxs = zero_idxs[0]
+                pos_idxs = zero_idxs[1]
+
+                # init alt seqs 
+                alt_seqs = torch.clone(seq_for_ism.expand([len(pos_idxs)] + list(seq_for_ism.size()))) # alt seqs init as current seq with shape [num_altsxlenx4x2] -- if len=10000 and channels=4, num_alts=3000
+
+                # fill in alt seqs based on zero idxs 
+                for alt_seq_idx in range(alt_seqs.shape[0]): 
+                    alt_seqs[alt_seq_idx,:,pos_idxs[alt_seq_idx]] = 0 # set all nucs to 0 
+                    alt_seqs[alt_seq_idx,nuc_idxs[alt_seq_idx],pos_idxs[alt_seq_idx]] = 1 # set curr nuc to 1 
+
+                dataset = TensorDataset(alt_seqs)
+                loader = DataLoader(dataset, batch_size=batch_size, shuffle=False,num_workers=num_workers)
+                pred = pl.trainer.predict(model,loader)
+                pred = torch.cat(pred).detach().numpy()
+
+                 # put res in correct order
+                for alt_seq_idx in range(alt_seqs.shape[0]): 
+                    attrib[nuc_idxs[alt_seq_idx],pos_idxs[alt_seq_idx]] = pred[alt_seq_idx] 
+
+            elif model_type=='psagenet': 
+                # personal seq, 1 idx output 
+                ref_pred = model(x)[0][:,1] 
+                
+                seq_for_ism=x[0,1,:4,:] 
+                attrib=np.zeros(seq_for_ism.shape)
+                attrib[np.where(seq_for_ism==1)[0],np.where(seq_for_ism==1)[1]]=ref_pred 
+
+                zero_idxs = torch.where(seq_for_ism== 0) 
+                nuc_idxs = zero_idxs[0]
+                pos_idxs = zero_idxs[1]
+
+                # init alt seqs 
+                alt_seqs = torch.clone(x[0,:,:].expand([len(pos_idxs)] + list(x[0,:,:].size())))
+
+                # fill in alt seqs based on zero idxs 
+                for alt_seq_idx in range(alt_seqs.shape[0]): 
+                    alt_seqs[alt_seq_idx,:,pos_idxs[alt_seq_idx]] = 0 # set all nucs to 0 
+                    alt_seqs[alt_seq_idx,nuc_idxs[alt_seq_idx],pos_idxs[alt_seq_idx]] = 1 # set curr nuc to 1 
+
+                # alt_seqs is now (num_alts, 4, seq_len) -- but we want (num_alts, 2, 8, seq_len) to use as input 
+                alt_seqs_model_input = x.repeat(alt_seqs.shape[0], 1, 1, 1)
+                alt_seqs_model_input[:,1,:4,:]=alt_seqs # ISM for personal, mat seq 
+
+                dataset = TensorDataset(alt_seqs_model_input)
+                loader = DataLoader(dataset, batch_size=batch_size, shuffle=False,num_workers=num_workers)
+                pred = pl.trainer.predict(model,loader)
+                pred = torch.cat(pred).detach().numpy()[:,1]
+
+                 # put in correct order in res 
+                for alt_seq_idx in range(alt_seqs.shape[0]): 
+                    attrib[nuc_idxs[alt_seq_idx],pos_idxs[alt_seq_idx]] = pred[alt_seq_idx] 
+
+        elif attrib_type=='grad':
+            x.requires_grad_()
+            model_output = model(x)[0]
+            
+            if model_type=='rsagenet' or model_type=='paired_psagenet': 
+                model_output.backward()
+                attrib =x.grad.clone().cpu().numpy()
+
+            elif model_type=='psagenet': 
+                # personal seq, 1 idx output 
+                model_output[1].backward()
+                attrib = x.grad.clone().cpu().numpy()[:,1,:4,:]
+
+                np.save(f'{results_save_dir}output_idx_1/per_region_attribs/{region_list[i]}',attrib)
+                x.grad.zero_()
+                model.zero_grad()
+
+                model_output = model(x)[0]
+                model_output[0].backward()
+                attrib = x.grad.clone().cpu().numpy()[:,0,:4,:]
+                np.save(f'{results_save_dir}output_idx_0/per_region_attribs/{region_list[i]}',attrib)
+
             x.grad.zero_()
+            model.zero_grad()
 
-        elif model_type=='psagenet': 
-            # ref seq, 0 idx output 
-            model_output[0].backward(retain_graph=True)
-            ref_seq_0_idx_attribs[i,:,:] = x.grad.clone().cpu().numpy()[:,0,:4,:]
-            x.grad.zero_()
-
-            # personal seq, 1 idx output 
-            model_output[1].backward()
-            personal_seq_1_idx_attribs[i,:,:] = x.grad.clone().cpu().numpy()[:,1,:4,:]
-            x.grad.zero_()
-
-    print('saving centered grads.npy')
-    if model_type == 'psagenet': 
-        ref_seq_0_idx_attribs = SAGEnet.tools.zero_center_attributions(ref_seq_0_idx_attribs)
-        personal_seq_1_idx_attribs = SAGEnet.tools.zero_center_attributions(personal_seq_1_idx_attribs)
-        np.save(f'{results_save_dir}ref_seq_0_idx_grads',ref_seq_0_idx_attribs)
-        np.save(f'{results_save_dir}personal_seq_1_idx_grads',personal_seq_1_idx_attribs)
-
-    elif model_type == 'rsagenet': 
-        attribs = SAGEnet.tools.zero_center_attributions(attribs)
-        np.save(f'{results_save_dir}grads',attribs)
+        if model_type!='psagenet':
+            np.save(f'{results_save_dir}per_region_attribs/{region_list[i]}',attrib)
     
     
 def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_win_size,hg38_file_path,tss_data_path,input_len,device,model_type,allow_reverse_complement,finetuned_weights_dir,variant_info_path,enformer_input_len=393216):
@@ -399,27 +425,6 @@ if __name__ == '__main__':
         n_nearest=args.n_nearest,
         threshold=args.threshold,
         allow_reverse_complement=args.allow_reverse_complement
-    )
-        
-    if args.which_fn == 'save_ref_seq_gradients': 
-        save_ref_seq_gradients(
-        ckpt_path=args.ckpt_path,
-        results_save_dir=args.results_save_dir,
-        num_genes=args.num_genes,
-        tss_data_path=args.tss_data_path,
-        hg38_file_path=args.hg38_file_path,
-        device=args.device,
-        input_len=args.input_len,
-        model_type=args.model_type,
-        predixcan_res_path=args.predixcan_res_path,
-        best_ckpt_metric=args.best_ckpt_metric,
-        max_epochs=args.max_epochs,
-        identify_best_ckpt=args.identify_best_ckpt,
-        rand_genes=args.rand_genes,
-        top_genes_to_consider=args.top_genes_to_consider,
-        seed=args.seed,
-        allow_reverse_complement=args.allow_reverse_complement,
-        gene_idx_start=args.gene_idx_start
     )
         
     if args.which_fn == 'save_gene_ism': 

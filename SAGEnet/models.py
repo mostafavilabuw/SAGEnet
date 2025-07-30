@@ -439,14 +439,17 @@ class pSAGEnet(Base):
         dropout=0,
         block_type='conv',
         increasing_dilation=False,
-        lam_diff=1,
+        lam_diff=10,
         lam_ref=1,
         start_from_ref=False,
-        num_top_train_genes=1000,
-        num_top_val_genes=1000,
-        num_training_subs=0,
+        num_train_regions=1000,
+        num_val_regions=1000,
+        num_training_subs=-1,
         model_save_dir='',
-        split_expr=True
+        split_y_data=True,
+        include_train_regions_val_subs_dataloader=True,
+        include_test_regions_test_subs_dataloader=False,
+        subtract_or_concat='subtract'
     ):
         """
         Initialize pSAGEnet. 
@@ -470,31 +473,40 @@ class pSAGEnet(Base):
         - dropout: Float, dropout in fully connected layers.  
         - block_type: String block type for the lowest resolution block ("mamba", "transformer", or "conv"). 
         - increasing_dilation: Boolean, whether or not to exponentially increase dilation in dilated_conv_layers (or keep at 2).  
-        - lam_dff: Float, weight on "difference" component of loss function (idx 1).  
+        - lam_diff: Float, weight on "difference" component of loss function (idx 1).  
         - lam_ref: Float, weight on "mean" component of loss function (idx 0).  
-        - split_expr: Boolean, if False, model "difference" output (idx 1) is predicted straight from personal sequence (no intermediate subtraction with reference).  
+        - split_y_data: Boolean, if True, model "difference" output (idx 1) is predicted straight from personal sequence (no intermediate subtraction with reference).  
         - start_from_ref: Boolean, whether model was initialized with weights from r-SAGE-net (for tracking model runs with wandb). 
-        - num_top_train_genes: Integer gene set size from which to select train genes (for tracking model runs with wandb). 
-        - num_top_val_genes: Integer gene set size from which to select validation genes (for tracking model runs with wandb). 
+        - num_train_regions: Integer region set size from which to select train regions (for tracking model runs with wandb). 
+        - num_top_val_regions: Integer region set size from which to select validation regions (for tracking model runs with wandb). 
         - num_training_subs: Integer number of training individuals (for tracking model runs with wandb). 
         - model_save_dir: String, directory where model is saved  (for tracking model runs with wandb). 
+        - include_train_regions_val_subs_dataloader: Boolean, whether or not to validate on train regions, validation individuals. 
+        - include_test_regions_test_subs_dataloader: Boolean, whether or not to validate on test regions, test individuals. 
+        - subtract_or_concat: String, whether to concat or subtract the reference and personal tensors. 
         """
         super().__init__()
         
-        self.split_expr=split_expr
         self.model_save_dir=model_save_dir
+        self.split_y_data=split_y_data
+        self.include_train_regions_val_subs_dataloader=include_train_regions_val_subs_dataloader
+        self.include_test_regions_test_subs_dataloader=include_test_regions_test_subs_dataloader
+        self.lam_ref=lam_ref
+        self.subtract_or_concat=subtract_or_concat
         self.save_hyperparameters()
         
         # initialize training/validation metrics 
-        self.train_genes_val_step_outputs = []
-        self.val_genes_val_step_outputs = []
-        self.train_genes_val_step_outputs_mean = []
-        self.val_genes_val_step_outputs_mean = []
-        self.train_genes_val_step_outputs_diff = []
-        self.val_genes_val_step_outputs_diff = []
+        self.train_regions_val_step_outputs_mean = []
+        self.train_regions_val_step_outputs_diff = []
+
+        self.val_regions_val_step_outputs_mean = []
+        self.val_regions_val_step_outputs_diff = []
+
+        self.test_regions_val_step_outputs_mean = []
+        self.test_regions_val_step_outputs_diff = []
 
         self.conv0 = ConvBlock(
-            4, first_layer_kernel_number, first_layer_kernel_size, padding=padding, batch_norm=batch_norm
+            4, first_layer_kernel_number, first_layer_kernel_size, padding=padding, batch_norm=False
         )
         
         self.convlayers = nn.ModuleList() 
@@ -518,18 +530,7 @@ class pSAGEnet(Base):
         fc_dim = ceil(fc_dim / pooling_size)
 
         for i in range(n_conv_blocks-1):
-            if i == n_conv_blocks-2 and block_type=='mamba': 
-                self.convlayers.append(
-                    Residual(
-                        MambaBlock(
-                            n_filters=int_layers_kernel_number,
-                            d_state=16,
-                            d_conv=int_layers_kernel_size,
-                            expand=2,
-                        )
-                    )
-                )
-            elif i == n_conv_blocks-2 and block_type=='transformer':
+            if i == n_conv_blocks-2 and block_type=='transformer':
                 self.convlayers.append(
                     Residual(
                         TransformerBlock(
@@ -592,8 +593,12 @@ class pSAGEnet(Base):
             self.fclayers.append(nn.Dropout(dropout))
 
         self.diff_fclayers = nn.ModuleList()  
+        if self.subtract_or_concat=='concat':
+            first_hidden_size=hidden_size*2
+        elif self.subtract_or_concat=='subtract':
+            first_hidden_size=hidden_size
         for i in range(h_layers):
-            self.diff_fclayers.append(nn.Linear(hidden_size, hidden_size))
+            self.diff_fclayers.append(nn.Linear(first_hidden_size, hidden_size))
             self.diff_fclayers.append(nn.ReLU())
             self.diff_fclayers.append(nn.Dropout(dropout))
 
@@ -631,8 +636,11 @@ class pSAGEnet(Base):
         ref_x = self.fc0(ref_x)
         personal_x = self.fc0(personal_x)
 
-        if self.split_expr: 
-            diff_x = ref_x - personal_x
+        if self.split_y_data: 
+            if self.subtract_or_concat=='subtract':
+                diff_x = personal_x - ref_x 
+            elif self.subtract_or_concat=='concat':
+                diff_x = torch.cat([personal_x, ref_x], dim=-1)
         else: 
             diff_x = personal_x
 
@@ -647,7 +655,7 @@ class pSAGEnet(Base):
         return torch.cat((ref_x, diff_x), dim=1)
 
     def training_step(self, batch, batch_idx):
-        x, y, gene_idx, sample_idx = batch
+        x, y, region_idx, sample_idx = batch
         y_hat = self(x)
 
         ref_loss = F.mse_loss(y_hat[:, 0], y[:, 0])
@@ -662,76 +670,115 @@ class pSAGEnet(Base):
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx: int = None):
-        x, y, gene_idx, sample_idx = batch
+        x, y, region_idx, sample_idx = batch
         y_hat = self(x)
-        
-        if dataloader_idx==0: 
-            ref_loss = F.mse_loss(y_hat[:, 0], y[:, 0])
-            diff_loss = F.mse_loss(y_hat[:, 1], y[:, 1])
-            loss = self.hparams.lam_ref * ref_loss + self.hparams.lam_diff * diff_loss
-            pred_labels = y_hat[:, 0] + y_hat[:, 1]
-            actual_labels = y[:, 0] + y[:, 1]
-            self.log("train_gene_val_sub_loss", loss, sync_dist=True)
-            self.log("train_gene_val_sub_ref_loss", ref_loss, sync_dist=True)
-            self.log("train_gene_val_sub_diff_loss", diff_loss, sync_dist=True)
-            self.train_genes_val_step_outputs_mean.append((y_hat[:, 0],y[:, 0], gene_idx, sample_idx))
-            self.train_genes_val_step_outputs_diff.append((y_hat[:, 1],y[:, 1], gene_idx, sample_idx))
 
-        elif dataloader_idx==1: 
+        if (not self.include_train_regions_val_subs_dataloader and not self.include_test_regions_test_subs_dataloader) or dataloader_idx==0: 
+             # log validation region validation individual 
             ref_loss = F.mse_loss(y_hat[:, 0], y[:, 0])
             diff_loss = F.mse_loss(y_hat[:, 1], y[:, 1])
             loss = self.hparams.lam_ref * ref_loss + self.hparams.lam_diff * diff_loss
-            pred_labels = y_hat[:, 0] + y_hat[:, 1]
-            actual_labels = y[:, 0] + y[:, 1]
-            self.log("val_gene_val_sub_loss", loss, sync_dist=True)
-            self.log("val_gene_val_sub_ref_loss", ref_loss, sync_dist=True)
-            self.log("val_gene_val_sub_diff_loss", diff_loss, sync_dist=True)
-            self.val_genes_val_step_outputs_mean.append((y_hat[:, 0],y[:, 0], gene_idx, sample_idx))
-            self.val_genes_val_step_outputs_diff.append((y_hat[:, 1],y[:, 1], gene_idx, sample_idx))
+            self.log("val_region_val_sub_loss", loss, sync_dist=True)
+            self.log("val_region_val_sub_ref_loss", ref_loss, sync_dist=True)
+            self.log("val_region_val_sub_diff_loss", diff_loss, sync_dist=True)
+            self.val_regions_val_step_outputs_mean.append((y_hat[:, 0],y[:, 0], region_idx, sample_idx))
+            self.val_regions_val_step_outputs_diff.append((y_hat[:, 1],y[:, 1], region_idx, sample_idx))
+        
+        elif dataloader_idx==1: 
+            if self.include_train_regions_val_subs_dataloader and  self.include_test_regions_test_subs_dataloader:
+                raise ValueError(f"include_train_regions_val_subs_dataloader and include_test_regions_test_subs_dataloader cannot both be True")
+
+            elif self.include_train_regions_val_subs_dataloader: 
+                # log train region validation individual 
+                ref_loss = F.mse_loss(y_hat[:, 0], y[:, 0])
+                diff_loss = F.mse_loss(y_hat[:, 1], y[:, 1])
+                loss = self.hparams.lam_ref * ref_loss + self.hparams.lam_diff * diff_loss
+                self.log("train_region_val_sub_loss", loss, sync_dist=True)
+                self.log("train_region_val_sub_ref_loss", ref_loss, sync_dist=True)
+                self.log("train_region_val_sub_diff_loss", diff_loss, sync_dist=True)
+                self.train_regions_val_step_outputs_mean.append((y_hat[:, 0],y[:, 0], region_idx, sample_idx))
+                self.train_regions_val_step_outputs_diff.append((y_hat[:, 1],y[:, 1], region_idx, sample_idx))
+            
+            elif self.include_test_regions_test_subs_dataloader: 
+                # log test region test individual
+                ref_loss = F.mse_loss(y_hat[:, 0], y[:, 0])
+                diff_loss = F.mse_loss(y_hat[:, 1], y[:, 1])
+                loss = self.hparams.lam_ref * ref_loss + self.hparams.lam_diff * diff_loss
+                self.log("test_region_test_sub_loss", loss, sync_dist=True)
+                self.log("test_region_test_sub_ref_loss", ref_loss, sync_dist=True)
+                self.log("test_region_test_sub_diff_loss", diff_loss, sync_dist=True)
+                self.test_regions_val_step_outputs_mean.append((y_hat[:, 0],y[:, 0], region_idx, sample_idx))
+                self.test_regions_val_step_outputs_diff.append((y_hat[:, 1],y[:, 1], region_idx, sample_idx))
         return loss
 
     
     def on_validation_epoch_end(self):        
-        self.train_genes_val_step_outputs_mean = self.all_gather(self.train_genes_val_step_outputs_mean)
-        self.val_genes_val_step_outputs_mean = self.all_gather(self.val_genes_val_step_outputs_mean)
-        self.train_genes_val_step_outputs_diff = self.all_gather(self.train_genes_val_step_outputs_diff)
-        self.val_genes_val_step_outputs_diff = self.all_gather(self.val_genes_val_step_outputs_diff)
+        self.val_regions_val_step_outputs_mean = self.all_gather(self.val_regions_val_step_outputs_mean)
+        self.val_regions_val_step_outputs_diff = self.all_gather(self.val_regions_val_step_outputs_diff)
+
+        if self.include_train_regions_val_subs_dataloader: 
+            self.train_regions_val_step_outputs_mean = self.all_gather(self.train_regions_val_step_outputs_mean)
+            self.train_regions_val_step_outputs_diff = self.all_gather(self.train_regions_val_step_outputs_diff)
         
+        if self.include_test_regions_test_subs_dataloader: 
+            self.test_regions_val_step_outputs_mean = self.all_gather(self.test_regions_val_step_outputs_mean)
+            self.test_regions_val_step_outputs_diff = self.all_gather(self.test_regions_val_step_outputs_diff)
+
         if self.trainer.global_rank == 0:            
-            # train genes, val subs 
+            # val regions, val subs 
             # reshape all elements in self.validation_step_outputs the (world_size, batch,..)  to (world_size*batch, ...)
-            self.train_genes_val_step_outputs_diff = reshape_collected_data(self.train_genes_val_step_outputs_diff)
-            self.train_genes_val_step_outputs_mean = reshape_collected_data(self.train_genes_val_step_outputs_mean)
+            self.val_regions_val_step_outputs_diff = reshape_collected_data(self.val_regions_val_step_outputs_diff)
+            self.val_regions_val_step_outputs_mean = reshape_collected_data(self.val_regions_val_step_outputs_mean)
 
-            gene_corrs_df, _ = calculate_correlations(self.train_genes_val_step_outputs_diff)
-            _, sample_corrs_df = calculate_correlations(self.train_genes_val_step_outputs_mean)
-            self.log("train_gene_val_sub_median_gene_corr", gene_corrs_df['Correlation'].median(), sync_dist=False)
-            self.log("train_gene_val_sub_median_sample_corr", sample_corrs_df['Correlation'].median(), sync_dist=False)
-            gene_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_train_gene_gene_corrs.csv')
-            sample_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_train_gene_sample_corrs_df.csv')
+            region_corrs_df, sample_corrs_df = calculate_correlations(self.val_regions_val_step_outputs_diff)
+            if self.lam_ref!=0: # redefine to use mean output, unless only_personal training 
+                _, sample_corrs_df = calculate_correlations(self.val_regions_val_step_outputs_mean)
 
-            # val genes, val subs 
-            # reshape all elements in self.validation_step_outputs the (world_size, batch,..)  to (world_size*batch, ...)
-            self.val_genes_val_step_outputs_diff = reshape_collected_data(self.val_genes_val_step_outputs_diff)
-            self.val_genes_val_step_outputs_mean = reshape_collected_data(self.val_genes_val_step_outputs_mean)
+            self.log("val_region_val_sub_median_region_corr", region_corrs_df['Correlation'].median(), sync_dist=False)
+            self.log("val_region_val_sub_median_sample_corr", sample_corrs_df['Correlation'].median(), sync_dist=False)
+            region_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_val_region_region_corrs.csv')
+            sample_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_val_region_sample_corrs.csv')
 
-            gene_corrs_df, _ = calculate_correlations(self.val_genes_val_step_outputs_diff)
-            _, sample_corrs_df = calculate_correlations(self.val_genes_val_step_outputs_mean)
-            self.log("val_gene_val_sub_median_gene_corr", gene_corrs_df['Correlation'].median(), sync_dist=False)
-            self.log("val_gene_val_sub_median_sample_corr", sample_corrs_df['Correlation'].median(), sync_dist=False)
-            gene_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_val_gene_gene_corrs.csv')
-            sample_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_val_gene_sample_corrs_df.csv')
-           
-        self.train_genes_val_step_outputs.clear()
-        self.val_genes_val_step_outputs.clear()
-        self.train_genes_val_step_outputs_mean.clear()
-        self.train_genes_val_step_outputs_diff.clear()
-        self.val_genes_val_step_outputs_mean.clear()
-        self.val_genes_val_step_outputs_diff.clear()
+            if self.include_train_regions_val_subs_dataloader: 
+                # train regions, val subs 
+                self.train_regions_val_step_outputs_diff = reshape_collected_data(self.train_regions_val_step_outputs_diff)
+                self.train_regions_val_step_outputs_mean = reshape_collected_data(self.train_regions_val_step_outputs_mean)
+
+                region_corrs_df, sample_corrs_df = calculate_correlations(self.train_regions_val_step_outputs_diff)
+                if self.lam_ref!=0: 
+                    _, sample_corrs_df = calculate_correlations(self.train_regions_val_step_outputs_mean)
+
+                self.log("train_region_val_sub_median_region_corr", region_corrs_df['Correlation'].median(), sync_dist=False)
+                self.log("train_region_val_sub_median_sample_corr", sample_corrs_df['Correlation'].median(), sync_dist=False)
+                region_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_train_region_region_corrs.csv')
+                sample_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_train_region_sample_corrs.csv')
+
+            if self.include_test_regions_test_subs_dataloader: 
+                # test regions, test subs 
+                self.test_regions_val_step_outputs_diff = reshape_collected_data(self.test_regions_val_step_outputs_diff)
+                self.test_regions_val_step_outputs_mean = reshape_collected_data(self.test_regions_val_step_outputs_mean)
+
+                region_corrs_df, sample_corrs_df = calculate_correlations(self.test_regions_val_step_outputs_diff)
+                if self.lam_ref!=0: 
+                    _, sample_corrs_df = calculate_correlations(self.test_regions_val_step_outputs_mean)
+
+                self.log("test_region_test_sub_median_region_corr", region_corrs_df['Correlation'].median(), sync_dist=False)
+                self.log("test_region_test_sub_median_sample_corr", sample_corrs_df['Correlation'].median(), sync_dist=False)
+                region_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_test_region_region_corrs.csv')
+                sample_corrs_df.to_csv(f'{self.model_save_dir}/epoch={self.trainer.current_epoch}_test_region_sample_corrs.csv')
+
+        self.val_regions_val_step_outputs_mean.clear()
+        self.val_regions_val_step_outputs_diff.clear()
+
+        if self.include_train_regions_val_subs_dataloader: 
+            self.train_regions_val_step_outputs_mean.clear()
+            self.train_regions_val_step_outputs_diff.clear()
+
+        if self.include_test_regions_test_subs_dataloader: 
+            self.test_regions_val_step_outputs_mean.clear()
+            self.test_regions_val_step_outputs_diff.clear()
       
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = None):
-        x, y, gene_idx, sample_idx = batch
+        x, y, region_idx, sample_idx = batch
         y_hat = self(x)
         return y_hat
-    
-    

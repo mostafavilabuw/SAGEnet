@@ -5,6 +5,7 @@ from torch.nn import functional as F
 import numpy as np
 import math
 
+
 def ConvBlock(
     in_channels,
     out_channels,
@@ -19,7 +20,9 @@ def ConvBlock(
     if activ_funct == "relu":
         activation = nn.ReLU(inplace=True)
     if activ_funct == "gelu":
-        activation = nn.GELU(inplace=True)
+        activation = nn.GELU()
+    elif activ_funct == "exp":
+        activation = ExpActivation()  
     return nn.Sequential(
         (
             nn.BatchNorm1d(in_channels) if batch_norm else nn.Identity()
