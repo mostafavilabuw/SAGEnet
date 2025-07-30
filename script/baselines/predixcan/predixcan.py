@@ -40,7 +40,7 @@ def predixcan(results_save_dir, gene_list_path, sub_list_dir, maf_threshold, inp
     gtex_all_subs = np.loadtxt(f'{sub_list_dir}GTEx/all_subs.csv',delimiter=',',dtype=str)
 
     expr_data = pd.read_csv(rosmap_expr_data_path, index_col=0) # genes x individuals 
-    tss_data = pd.read_csv(tss_data_path,sep='\t',index_col=1)
+    tss_data = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
     
     for k in range(len(gene_list)): 
         ensg = gene_list[k]

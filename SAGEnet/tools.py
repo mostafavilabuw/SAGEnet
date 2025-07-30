@@ -18,8 +18,8 @@ def get_pos_idx_in_seq(gene, pos,tss_data_path='/homes/gws/aspiro17/seqtoexp/Per
     
     Returns: integer position index of position in sequence. 
     """
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
-    gene_info = gene_meta_info[gene_meta_info['gene_id']==gene].iloc[0]
+    gene_meta_info = pd.read_csv(tss_data_path, sep='\t', index_col='region_id')
+    gene_info = gene_meta_info.loc[gene]
     tss_pos = gene_info["tss"]
     pos_start = max(0, tss_pos - input_len // 2)
     pos_idx = pos-pos_start
@@ -283,30 +283,36 @@ def get_null_corr(obs,pred):
     return null_corr_res
 
 
-def get_train_val_test_regions(region_list,metadata,new_split=False):
+def get_train_val_test_genes(gene_list,tss_data_path='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/gene-ids-and-positions.tsv', use_enformer_gene_assignments=False,enformer_gene_assignments_path=None):
     """
-    Sort a given region list into train, validation, and test based on chromsome split. 
+    Sort a given gene list into train, validaiton, and test based on either chromsome split or enformer gene assignments. 
     
     Parameters: 
-    Returns: Tuple of numpy arrays containing train, validation, and test regions 
+    - gene_list: List of gene_ids 
+    - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr' and 'gene'. 
+    - use_enformer_gene_assignments: Boolean, whether to use gene splits from enformer_gene_assignments_path (or based on chromosome).
+    - enformer_gene_assignments_path: String path to DataFrame containing Enformer gene split assignments. Only relevant if use_enformer_gene_assignments==True. 
+
+    Returns: Tuple of numpy arrays containing train, validation, and test genes 
     """
+    if use_enformer_gene_assignments: 
+        print('selecting train/val/test gene sets based on enformer gene sets')
+        assignments_df = pd.read_csv(enformer_gene_assignments_path,index_col=0)
+        train_genes = assignments_df[assignments_df['enformer_set']=='train'].index
+        val_genes = assignments_df[assignments_df['enformer_set']=='valid'].index
+        test_genes = assignments_df[assignments_df['enformer_set']=='valid'].index
 
-    train_chrs = np.array(list(range(1,17))).astype(str)
-    val_chrs = np.array([17,18,21,22]).astype(str)
-    test_chrs = np.array([19, 20]).astype(str)
-
-    sel_metadata = metadata[metadata.index.isin(region_list)]
-
-    train_regions = sel_metadata[sel_metadata['chr'].astype(str).isin(train_chrs)].index.values
-    val_regions = sel_metadata[sel_metadata['chr'].astype(str).isin(val_chrs)].index.values
-    test_regions = sel_metadata[sel_metadata['chr'].astype(str).isin(test_chrs)].index.values
-
-    print(f'train_chrs:{train_chrs}')
-    print(f'val_chrs:{val_chrs}')
-    print(f'test_chrs:{test_chrs}')
-
-    return train_regions, val_regions, test_regions
-
+    else: 
+        print('selecting train/val/test gene sets based on chromosome split')
+        train_chrs = np.array(list(range(1,17))).astype(str)
+        val_chrs = np.array([17,18,21,22]).astype(str)
+        test_chrs = np.array([19, 20]).astype(str)
+        gene_meta_info = pd.read_csv(tss_data_path, sep='\t', index_col='region_id')
+        sel_gene_meta_info = gene_meta_info.loc[gene_list]
+        train_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(train_chrs)].index.values
+        val_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(val_chrs)].index.values
+        test_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(test_chrs)].index.values
+    return train_genes, val_genes, test_genes
 
 def select_ckpt_path(ckpt_dir,max_epochs=5,best_ckpt_metric='train_region_region'):
     """

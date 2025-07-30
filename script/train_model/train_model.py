@@ -82,14 +82,14 @@ def train_on_personal(model_save_dir, tss_data_path,expr_data_path,sub_data_dir,
     train_gene_list, _ , _ = SAGEnet.tools.get_train_val_test_genes(train_gene_list, tss_data_path=tss_data_path)
     _, val_gene_list, _ = SAGEnet.tools.get_train_val_test_genes(val_gene_list, tss_data_path=tss_data_path)
 
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
-    train_gene_meta=gene_meta_info[gene_meta_info['ensg'].isin(train_gene_list)]
-    val_gene_meta=gene_meta_info[gene_meta_info['ensg'].isin(val_gene_list)]
+    gene_meta_info = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
+    train_gene_meta=gene_meta_info.loc[train_gene_list]
+    val_gene_meta=gene_meta_info.loc[val_gene_list]
 
     print(f'n train genes = {len(train_gene_meta)}')
     print(f'n val genes = {len(val_gene_meta)}')
-    np.save(f'{model_save_dir}/train_genes',train_gene_meta['ensg'])
-    np.save(f'{model_save_dir}/val_genes',val_gene_meta['ensg'])
+    np.save(f'{model_save_dir}/train_genes',train_gene_meta.index.values)
+    np.save(f'{model_save_dir}/val_genes',val_gene_meta.index.values)
     
     if zscore: 
         expr_dir = os.path.dirname(expr_data_path)

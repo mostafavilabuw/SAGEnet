@@ -75,7 +75,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
         contig_prefix='chr'
     else: 
         raise ValueError("rosmap_or_gtex must be one of {rosmap,gtex}")
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
+    gene_meta_info = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
     
     # name results_save_dir 
     if results_save_dir=='':
@@ -104,7 +104,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
     gene_list = SAGEnet.tools.select_gene_set(predixcan_res_path=predixcan_res_path, rand_genes=rand_genes, top_genes_to_consider=top_genes_to_consider,seed=seed, num_genes=num_genes,gene_idx_start=gene_idx_start)           
     print(f"n genes={len(gene_list)}")
     np.save(results_save_dir+'gene_list',gene_list)
-    selected_genes_meta = gene_meta_info.set_index('ensg', drop=False).loc[gene_list]
+    selected_genes_meta = gene_meta_info.loc[gene_list]
     
     # load sub info 
     
@@ -148,7 +148,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
             else: 
                 to_run_gene = unfinished_genes[0]
             print(f"evaluating {to_run_gene}")
-            selected_genes_meta = gene_meta_info[gene_meta_info['ensg']==to_run_gene]
+            selected_genes_meta = gene_meta_info.loc[to_run_gene]
             dataset = PersonalGenomeDataset(metadata=selected_genes_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path,sample_list=subs, input_len=input_len,contig_prefix=contig_prefix,train_subs=train_subs, only_snps=only_snps,maf_min=maf_threshold,train_subs_vcf_file_path=train_subs_vcf_file_path,allow_reverse_complement=allow_reverse_complement)
             np.save(started_genes_save_dir + to_run_gene, [])
 
@@ -169,7 +169,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
             print(f"num unfinished genes = {len(unfinished_genes)}")
     
     else: 
-        dataset = PersonalGenomeDataset(gene_metadata=selected_genes_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, sample_list=subs, input_len=input_len,contig_prefix=contig_prefix,train_subs=train_subs, only_snps=only_snps,maf_threshold=maf_threshold,train_subs_vcf_file_path=train_subs_vcf_file_path,allow_reverse_complement=allow_reverse_complement)
+        dataset = PersonalGenomeDataset(metadata=selected_genes_meta, vcf_file_path=vcf_file_path, hg38_file_path=hg38_file_path, sample_list=subs, input_len=input_len,contig_prefix=contig_prefix,train_subs=train_subs, only_snps=only_snps,maf_threshold=maf_threshold,train_subs_vcf_file_path=train_subs_vcf_file_path,allow_reverse_complement=allow_reverse_complement)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         trainer = pl.Trainer(accelerator="gpu", devices=[device], precision=16,logger=False)
         preds = trainer.predict(model, dataloader)

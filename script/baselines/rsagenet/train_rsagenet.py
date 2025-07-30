@@ -21,15 +21,15 @@ def train_ref(batch_size, num_workers, max_epochs, model_save_dir, num_nodes, h_
     os.makedirs(model_save_dir, exist_ok=True)
     wandb_logger = WandbLogger(project=wandb_project, name=wandb_job_name, id=wandb_job_name, resume="allow")
 
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
+    gene_meta_info = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
     expr_data = pd.read_csv(expr_data_path, index_col=0)
     gene_list = np.loadtxt(gene_list_path,delimiter=',',dtype=str)
     train_subs = np.loadtxt(f'{sub_data_dir}ROSMAP/train_subs.csv',delimiter=',',dtype=str)
     expr_data=expr_data.loc[gene_list,train_subs]
 
     train_genes, val_genes, test_genes = SAGEnet.tools.get_train_val_test_genes(gene_list,tss_data_path=tss_data_path, use_enformer_gene_assignments=use_enformer_gene_assignments,enformer_gene_assignments_path=enformer_gene_assignments_path)
-    train_genes_meta = gene_meta_info[gene_meta_info['gene_id'].isin(train_genes)]
-    val_genes_meta = gene_meta_info[gene_meta_info['gene_id'].isin(val_genes)]
+    train_genes_meta = gene_meta_info.loc[train_genes]
+    val_genes_meta = gene_meta_info.loc[val_genes]
     
     print(f'n train genes: {len(train_genes_meta)}')
     print(f'n val genes: {len(val_genes_meta)}')

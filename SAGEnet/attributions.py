@@ -244,18 +244,18 @@ def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_
     if model_type!='enformer':
         model=model.to(device).eval()
 
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
-    selected_genes_meta = gene_meta_info.set_index('ensg', drop=False).loc[[gene]]
+    gene_meta_info = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
+    selected_genes_meta = gene_meta_info.loc[[gene]]
     if variant_info_path is None: 
         print('no variant info provided, ISM on reference sequence')
-        dataset = ReferenceGenomeDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=single_seq)
+        dataset = ReferenceGenomeDataset(metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=single_seq)
         insert_variant=0
     else: 
         print('variant info provided, ISM on reference sequence with variant inserted')
         variant_info = pd.read_csv(variant_info_path, sep="\t")
         if variant_info.iloc[0]['gene']!=gene: 
             raise ValueError(f"gene in variant info ({variant_info.iloc[0]['gene']}) does not match gene provided ({gene})")
-        dataset = VariantDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,variant_info=variant_info, allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq,insert_variants=True)
+        dataset = VariantDataset(metadata=selected_genes_meta,hg38_file_path=hg38_file_path,variant_info=variant_info, allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq,insert_variants=True)
         insert_variant=1
     x = dataset[0][0].unsqueeze(0).numpy()
     
@@ -351,10 +351,11 @@ def mult_gene_save_annotated_seqlets(attrib_path,gene_list_path, hg38_file_path,
 
     Saves: seqlet and annotation Dataframe per gene within a directory created inside of the same directory as attrib_path. 
     """
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t")
+    gene_meta_info = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
 
     attribs_save_dir = f'{os.path.dirname(attrib_path)}/'
     attribs = np.load(attrib_path)
+    attribs=SAGEnet.tools.zero_center_attributions(attribs)
     attribs_label = attrib_path.split('/')[-1].split('.')[0] # label for directory in which to save annotations -- filename of attributions 
 
     attribs_gene_list = np.load(f'{attribs_save_dir}gene_list.npy',allow_pickle=True)
@@ -368,8 +369,8 @@ def mult_gene_save_annotated_seqlets(attrib_path,gene_list_path, hg38_file_path,
         gene = attribs_gene_list[use_gene_idx]
         print(gene)
         attrib = attribs[use_gene_idx,:]
-        selected_genes_meta = gene_meta_info.set_index('ensg', drop=False).loc[[gene]]
-        ref_dataset = ReferenceGenomeDataset(gene_metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=True)
+        selected_genes_meta = gene_meta_info.loc[[gene]]
+        ref_dataset = ReferenceGenomeDataset(metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=True)
         ref_seq = ref_dataset[0][0].numpy()
         annotated_seqlets =  get_annotated_seqlets(attrib,ref_seq,additional_flanks=additional_flanks,threshold=threshold,motif_database_path=motif_database_path,n_nearest=n_nearest)
         annotated_seqlets.to_csv(f'{attrib_analysis_save_dir}{gene}.csv')

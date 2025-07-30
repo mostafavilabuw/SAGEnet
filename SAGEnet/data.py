@@ -212,7 +212,7 @@ class ReferenceGenomeDataset(Dataset):
 
         Parameters:
         - metadata: DataFrame containing genome region-related information, specifically the columns 'chr', 'pos', and, optionally 'strand'. 'pos' should 
-            be the center of the region -- i.e., TSS for gene expression. 
+            be the center of the region -- i.e., TSS for gene expression. Index should be region ID (for example, gene ENSG). 
         - hg38_file_path: String path to the human genome (hg38) reference file (hg19 can also be used). 
         - y_data: DataFrame with y data, indexed by region names, with sample names as columns.
             If not provided, 0 will be used as a placeholder y value. 
@@ -325,7 +325,7 @@ class VariantDataset(Dataset):
 
         Parameters:
         - metadata: DataFrame containing genome region-related information, specifically the columns 'chr', 'pos', and, optionally 'strand'. 'pos' should 
-            be the center of the region -- i.e., TSS for gene expression.         
+            be the center of the region -- i.e., TSS for gene expression. Index should be region ID (for example, gene ENSG).        
         - hg38_file_path: String path to the human genome (hg38) reference file (hg19 can also be used). 
         - variant_info: DataFrame containing variant information, specifially the columns 'region_id', 'chr', 'pos', 'ref', and 'alt'. 
         - input_len: Integer, size of the genomic window for model input. 
@@ -465,7 +465,7 @@ class PersonalGenomeDataset(Dataset):
 
         Parameters:
         - metadata: DataFrame containing genome region-related information, specifically the columns 'chr', 'pos', and, optionally 'strand'. 'pos' should 
-            be the center of the region -- i.e., TSS for gene expression. 
+            be the center of the region -- i.e., TSS for gene expression. Index should be region ID (for example, gene ENSG). 
         - vcf_file_path: String path to the VCF file with variant information.
         - hg38_file_path: String path to the human genome (hg38) reference file (hg19 can also be used). 
         - sample_list: List of sample names (as they appear in VCF) to include in dataset. 
