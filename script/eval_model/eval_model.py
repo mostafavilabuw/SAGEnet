@@ -101,7 +101,7 @@ def eval_model(ckpt_path, results_save_dir, num_genes, tss_data_path, hg38_file_
     os.makedirs(results_save_dir, exist_ok=True)
     
     # select gene set 
-    gene_list = SAGEnet.tools.select_gene_set(predixcan_res_path=predixcan_res_path, rand_genes=rand_genes, top_genes_to_consider=top_genes_to_consider,seed=seed, num_genes=num_genes,gene_idx_start=gene_idx_start)           
+    gene_list = SAGEnet.tools.select_region_set(enet_path=predixcan_res_path, rand_regions=rand_genes, top_regions_to_consider=top_genes_to_consider,seed=seed, num_regions=num_genes,region_idx_start=gene_idx_start)           
     print(f"n genes={len(gene_list)}")
     np.save(results_save_dir+'gene_list',gene_list)
     selected_genes_meta = gene_meta_info.loc[gene_list]

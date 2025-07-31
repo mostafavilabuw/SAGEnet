@@ -6,6 +6,157 @@ import os
 import seaborn as sb
 from sklearn.metrics import r2_score
 import tangermeme.plot
+from sklearn.cluster import AgglomerativeClustering
+import drg_tools.motif_analysis
+from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import linkage, dendrogram
+from matplotlib.gridspec import GridSpec
+import SAGEnet.tools
+import SAGEnet.attributions
+
+def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',motif_database_path='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme',title_left_pos=.25,title_upper_pos=.95,linkage_metric='complete',distance_threshold=.4,show_p=False):
+    # motif_values should be list, each item should be [4, len]
+    database_motifs = tangermeme.io.read_meme(motif_database_path)
+
+    flipped_list = [motif.transpose() for motif in motif_values]
+
+    cwm_correlation = drg_tools.motif_analysis.torch_compute_similarity_motifs(
+        flipped_list, flipped_list, metric='correlation',
+        padding=0, bk_freq=0, reverse_complement=True,
+        verbose=False, 
+        return_alignment=False
+    )
+
+    #all_seqlet_effects = [SAGEnet_DNAm.attributions.get_seqlet_effects(base_dir, cluster_id) for cluster_id in motif_ids]
+    all_seqlet_effects = [seqlet_info[seqlet_info['cluster_ids']==cluster_id]['attribution'].values for cluster_id in motif_ids]
+
+    all_seqlet_effects_flat = np.concatenate(all_seqlet_effects)
+    global_min = np.min(all_seqlet_effects_flat)
+    global_max = np.max(all_seqlet_effects_flat)
+    margin = (global_max - global_min) * 0.05
+    xlim = (global_min - margin, global_max + margin)
+
+    #dist_matrix = 1 - np.clip(cwm_correlation, 0, 1)
+    dist_matrix=cwm_correlation
+    np.fill_diagonal(dist_matrix, 0)
+
+    clustering = AgglomerativeClustering(
+        n_clusters=None,
+        metric='precomputed',
+        linkage=linkage_metric,
+        distance_threshold=distance_threshold
+    )
+    clustering.fit(dist_matrix)
+
+    labels = clustering.labels_
+    condensed_dist = squareform(dist_matrix)
+    linkage_matrix = linkage(condensed_dist, method='average')
+
+    fig = plt.figure(figsize=(10, 2 + len(motif_values) * 0.6))
+    gs = GridSpec(
+        len(motif_values), 5,
+        width_ratios=[1, 2, 2, 3, 1],  # dendrogram, motif1, motif2, boxplot, (optional) label
+        wspace=0.3,
+        hspace=0.8
+    )
+
+    #ax_title = fig.add_axes([0.5, 0.92, .5, .05])
+    ax_title = fig.add_axes([title_left_pos, title_upper_pos, .5, .05])
+    ax_title.text(0.5, 0.5, title, ha='center', va='center', fontsize=14)
+    ax_title.axis('off')
+
+    # dendrogram
+    ax_dendro = fig.add_subplot(gs[:, 0])
+    dendro = dendrogram(
+        linkage_matrix,
+        orientation='left',
+        no_labels=True,
+        ax=ax_dendro,
+        color_threshold=0,
+        link_color_func=lambda k: 'black'
+    )
+    for spine in ax_dendro.spines.values():
+        spine.set_visible(False)
+    ax_dendro.set_xticks([])
+    ax_dendro.set_yticks([])
+
+    # get motif order from dendrogram
+    motif_order = dendro['leaves']
+
+    for i, idx in enumerate(motif_order):
+        motif = motif_values[idx]
+        #data = all_seqlet_effects[idx]
+        data = all_seqlet_effects[motif_order[i]]
+
+        # motif plot (first)
+        ax_motif1 = fig.add_subplot(gs[i, 1])
+        tangermeme.plot.plot_logo(motif, ax=ax_motif1)
+        ax_motif1.set_xticks([])
+        ax_motif1.set_yticks([])
+        for spine in ax_motif1.spines.values():
+            spine.set_visible(False)
+        ax_motif1.set_title(motif_labels[idx].split(':')[0], fontsize=10, pad=5)
+
+        # plot datbase match 
+        database_motif_name=motif_labels[idx].split(':')[1]
+        strand = motif_labels[idx].split(':')[2]
+        database_motif_match = database_motifs[database_motif_name]
+        if strand=='1': 
+            database_motif_match=SAGEnet.tools.get_rc(database_motif_match)
+
+        database_motif_match=SAGEnet.attributions.ppm_to_ic(database_motif_match)
+
+        ax_motif2 = fig.add_subplot(gs[i, 2])
+        tangermeme.plot.plot_logo(database_motif_match, ax=ax_motif2)
+        ax_motif2.set_xticks([])
+        ax_motif2.set_yticks([])
+        for spine in ax_motif2.spines.values():
+            spine.set_visible(False)    
+        curr_p = float(motif_labels[idx].split(':')[3])
+
+        if show_p:
+            title_str=f"{motif_labels[idx].split(':')[1].split('.')[0]} (p={curr_p})"
+        else:
+            title_str=f"{motif_labels[idx].split(':')[1].split('.')[0]}"
+
+        if curr_p>=0.05: 
+            ax_motif2.add_patch(
+            plt.Rectangle((0, 0), 1, 1, transform=ax_motif2.transAxes, 
+                        facecolor='white', alpha=0.6, zorder=10)
+            )
+            ax_motif2.set_title(title_str, fontsize=10, pad=5,color='gray')
+        else: 
+            ax_motif2.set_title(title_str, fontsize=10, pad=5)
+
+
+        # boxplot + scatter
+        ax_box = fig.add_subplot(gs[i, 3])
+        ax_box.boxplot(data, vert=False, widths=.8, showfliers=False)
+        ax_box.scatter(data, np.full_like(data, 1), alpha=0.6, c='cornflowerblue', s=10)
+
+        if i == len(motif_order) - 1:
+            ax_box.set_xticks([0])
+            ax_box.tick_params(axis='x', labelsize=12)
+            ax_box.set_xlabel("Seqlet mean attribution", fontsize=12,labelpad=10)
+            
+            ax_motif1.set_xlabel(f"\n \n Seqlet cluster", fontsize=12)
+            ax_motif2.set_xlabel(f"\n \n Top motif match", fontsize=12)
+
+        else:
+            ax_box.set_xticks([])
+            ax_box.set_xticklabels([])
+
+        ax_box.set_yticks([])
+        ax_box.set_yticklabels([])
+        for spine in ax_box.spines.values():
+            spine.set_visible(False)
+
+        ax_box.set_xlim(xlim) 
+        ax_box.axvline(x=0, color='red', linestyle='--', linewidth=1)
+
+    plt.tight_layout()
+    plt.show()
+
 
 def plot_attribs(arr,title='',annotations=None,center_line=False,save_dir=None,save_name='',shorten_motif_name=0,fig_width=15): 
     """
@@ -81,13 +232,14 @@ def line_plot_compare(arra, xlabels, arrb=None, x=None,
                       fig_width=6, fig_height=6,
                       legend_x=0.7, legend_y=0.95,
                       save_dir=None, save_name=None,
-                      plot_y0=True, include_line=True):
+                      plot_y0=True, include_line=True,
+                      fontsize=14):
     """
     Plot line plot of array (and optional additional array). Each array can be 1D or 2D:
     - If 2D, the first dimension determines the number of x-ticks,
       and the second dimension is plotted as median ± std.
     """
-    plt.rcParams.update({'font.size': 14})  # Set global font size
+    plt.rcParams.update({'font.size': fontsize})  # Set global font size
     plt.clf()
     
     if save_name is None: 
@@ -158,7 +310,10 @@ def sb_plot(res_df, xlabel='', ylabel='', title='',
                      label_y_offset=None,
                      nan_to_zero=True,
                      hue=None,
-                     title_pad=0):
+                     title_pad=0,
+                     legend_n_col=2,
+                     legend_x=.5,
+                     legend_y=1):
     """
     Combined seaborn plot function for box, bar, violin, and scatter plots.
 
@@ -284,10 +439,10 @@ def sb_plot(res_df, xlabel='', ylabel='', title='',
 
     legend = ax.get_legend()
     if legend:
-        legend.set_frame_on(False)
-        legend.set_title(None)
-        ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2)
-
+        legend.remove()  # remove the auto-generated one
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles, labels, loc=None, bbox_to_anchor=(legend_x, legend_y),
+                ncol=legend_n_col, frameon=False, title=None,fontsize=fontsize)
     return ax
 
         

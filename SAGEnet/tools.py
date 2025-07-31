@@ -1,9 +1,115 @@
 import numpy as np
 import os
 import pysam
+import random
 import pandas as pd
 from sklearn.decomposition import PCA
 from SAGEnet.models import rSAGEnet
+
+def get_rc(motif_arr):
+    """ Return the reverse complement of a one-hot-encoded DNA sequence"""
+    flipped_arr = motif_arr.flip(dims=[1])  # reverse positions
+    complement_idx = [3, 2, 1, 0]     # T, G, C, A
+    flipped_arr = flipped_arr[complement_idx, :]
+    return flipped_arr
+
+
+def select_region_set(enet_path, rand_regions, top_regions_to_consider=5000,seed=42, num_regions=1000,region_idx_start=0): 
+    """
+    Select region set, either based on prediXcan ranking or randomly. 
+    - predixcan_res_path: String path to prediXcan results path, to be used to construct ranked region sets. 
+    - rand_regions: Boolean indicating whether or not to randomly select regions (from top_regions_to_consider region set) to use in model evaluation. If False, select region set from top-prediXcan ranked regions. 
+    - top_regions_to_consider: Integer, length of prediXcan-ranked top region set to consider when randomly selecting regions (only relevant if rand_regions==True). 
+    - seed: Integer seed to determine random shuffling of region set. 
+    - num_regions: Integer number of genes to select. 
+    - region_idx_start: Integer index in prediXcan-ranked region list of first region to use in model evaluation.
+    
+    Returns: List of regions (each region is a string).
+    """
+    enet_res = pd.read_csv(enet_path,index_col=0)
+    enet_res = enet_res.sort_values(by='val_pearson', ascending=False)
+    if top_regions_to_consider<0: 
+        top_regions_to_consider=len(enet_res)
+    all_regions=enet_res.index.values[:top_regions_to_consider]
+
+    if rand_regions: 
+        random.seed(seed)
+        random.shuffle(all_regions)
+        region_list=all_regions[:num_regions]
+    else: 
+        print(f'selecting regions from {region_idx_start} to {region_idx_start+num_regions}')
+        region_list = enet_res.index[region_idx_start:region_idx_start+num_regions].values
+        
+    return region_list
+
+def get_train_val_test_genes(gene_list,tss_data_path='/homes/gws/aspiro17/SAGEnet/input_data/gene-ids-and-positions.tsv', use_enformer_gene_assignments=False,enformer_gene_assignments_path=None):
+    """
+    Sort a given gene list into train, validaiton, and test based on either chromsome split or enformer gene assignments. 
+    
+    Parameters: 
+    - gene_list: List of gene_ids 
+    - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr' and 'gene'. 
+    - use_enformer_gene_assignments: Boolean, whether to use gene splits from enformer_gene_assignments_path (or based on chromosome).
+    - enformer_gene_assignments_path: String path to DataFrame containing Enformer gene split assignments. Only relevant if use_enformer_gene_assignments==True. 
+
+    Returns: Tuple of numpy arrays containing train, validation, and test genes 
+    """
+    if use_enformer_gene_assignments: 
+        print('selecting train/val/test gene sets based on enformer gene sets')
+        assignments_df = pd.read_csv(enformer_gene_assignments_path,index_col=0)
+        train_genes = assignments_df[assignments_df['enformer_set']=='train'].index
+        val_genes = assignments_df[assignments_df['enformer_set']=='valid'].index
+        test_genes = assignments_df[assignments_df['enformer_set']=='valid'].index
+
+    else: 
+        print('selecting train/val/test gene sets based on chromosome split')
+        train_chrs = np.array(list(range(1,17))).astype(str)
+        val_chrs = np.array([17,18,21,22]).astype(str)
+        test_chrs = np.array([19, 20]).astype(str)
+        gene_meta_info = pd.read_csv(tss_data_path, sep='\t', index_col='region_id')
+        gene_meta_info['chr']=gene_meta_info['chr'].astype(str)
+        sel_gene_meta_info = gene_meta_info.loc[gene_list]
+        train_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(train_chrs)].index.values
+        val_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(val_chrs)].index.values
+        test_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(test_chrs)].index.values
+    return train_genes, val_genes, test_genes
+
+
+def rand_split_arr(arr,seed=17,train_frac=.8,val_frac=.1): 
+    """ Randomly split an array into train/validation/test """
+    np.random.seed(seed)
+    np.random.shuffle(arr)
+    
+    train_size = int(len(arr) * train_frac)
+    val_size = int(len(arr) * val_frac)
+
+    return arr[:train_size],arr[train_size:train_size+val_size],arr[train_size+val_size:]
+
+
+def get_subs(sub_split, sub_data_dir='/homes/gws/aspiro17/DNAm_and_expression/input_data/individual_lists/',vcf_path='/data/mostafavilab/bng/rosmapAD/data/wholeGenomeSeq/chrAll.phased.vcf.gz',rosmap_or_gtex='rosmap',expr_or_dnam='dnam',tissue='Lung'):
+    """ Get train/validation/test individuals for DNAm analyses """
+    if rosmap_or_gtex == 'rosmap':
+        y_data_subs=np.loadtxt(f'{sub_data_dir}ROSMAP_{expr_or_dnam}.csv',delimiter=',',dtype=str)
+    elif rosmap_or_gtex == 'gtex':
+        y_data_subs=np.loadtxt(f'{sub_data_dir}GTEx_{expr_or_dnam}_{tissue}.csv',delimiter=',',dtype=str)
+    
+    vcf_subs = get_sample_names(vcf_path)
+    all_train_subs, all_val_subs, all_test_subs = rand_split_arr(vcf_subs)
+
+    train_subs = [sub for sub in all_train_subs if sub in y_data_subs]
+    val_subs = [sub for sub in all_val_subs if sub in y_data_subs]
+    test_subs = [sub for sub in all_test_subs if sub in y_data_subs]
+
+    if sub_split=='train':
+        subs=train_subs
+    elif sub_split=='val':
+        subs=val_subs
+    elif sub_split=='test':
+        subs=test_subs
+    else: 
+        subs = np.concatenate((train_subs,val_subs,test_subs)) # all subs
+    return subs 
+
 
 def get_pos_idx_in_seq(gene, pos,tss_data_path='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/data/ROSMAP/expressionData/gene-ids-and-positions.tsv',input_len=40000,allow_reverse_complement=True):
     """
@@ -29,35 +135,6 @@ def get_pos_idx_in_seq(gene, pos,tss_data_path='/homes/gws/aspiro17/seqtoexp/Per
     if rc and allow_reverse_complement: 
         pos_idx=input_len-pos_idx
     return pos_idx
-
-
-def select_region_set(enet_path, rand_regions, top_regions_to_consider=5000,seed=42, num_regions=1000,region_idx_start=0): 
-    """
-    Select region set, either based on prediXcan ranking or randomly. 
-    - predixcan_res_path: String path to prediXcan results path, to be used to construct ranked region sets. 
-    - rand_regions: Boolean indicating whether or not to randomly select regions (from top_regions_to_consider region set) to use in model evaluation. If False, select region set from top-prediXcan ranked regions. 
-    - top__regions_to_consider: Integer, length of prediXcan-ranked top region set to consider when randomly selecting regions (only relevant if rand_regions==True). 
-    - seed: Integer seed to determine random shuffling of region set. 
-    - num_regions: Integer number of genes to select. 
-    - region_idx_start: Integer index in prediXcan-ranked region list of first region to use in model evaluation.
-    
-    Returns: List of regions (each region is a string).
-    """
-    enet_res = pd.read_csv(enet_path,index_col=0)
-    enet_res = enet_res.sort_values(by='val_pearson', ascending=False)
-
-    if rand_regions: 
-        print(f'randomly selecting from top {top_regions_to_consider} regions')
-        region_options = enet_res.index[:top_regions_to_consider].values
-        np.random.seed(seed)
-        np.random.shuffle(region_options)
-        region_list = region_options[:num_regions]
-    else: 
-        print(f'selecting regions from {region_idx_start} to {region_idx_start+num_regions}')
-        region_list = enet_res.index[region_idx_start:region_idx_start+num_regions].values
-        
-    return region_list
-
 
 def get_sample_names(vcf_file_path):
     """
@@ -282,37 +359,6 @@ def get_null_corr(obs,pred):
     null_corr_res['pearson']=null_corr
     return null_corr_res
 
-
-def get_train_val_test_genes(gene_list,tss_data_path='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/gene-ids-and-positions.tsv', use_enformer_gene_assignments=False,enformer_gene_assignments_path=None):
-    """
-    Sort a given gene list into train, validaiton, and test based on either chromsome split or enformer gene assignments. 
-    
-    Parameters: 
-    - gene_list: List of gene_ids 
-    - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr' and 'gene'. 
-    - use_enformer_gene_assignments: Boolean, whether to use gene splits from enformer_gene_assignments_path (or based on chromosome).
-    - enformer_gene_assignments_path: String path to DataFrame containing Enformer gene split assignments. Only relevant if use_enformer_gene_assignments==True. 
-
-    Returns: Tuple of numpy arrays containing train, validation, and test genes 
-    """
-    if use_enformer_gene_assignments: 
-        print('selecting train/val/test gene sets based on enformer gene sets')
-        assignments_df = pd.read_csv(enformer_gene_assignments_path,index_col=0)
-        train_genes = assignments_df[assignments_df['enformer_set']=='train'].index
-        val_genes = assignments_df[assignments_df['enformer_set']=='valid'].index
-        test_genes = assignments_df[assignments_df['enformer_set']=='valid'].index
-
-    else: 
-        print('selecting train/val/test gene sets based on chromosome split')
-        train_chrs = np.array(list(range(1,17))).astype(str)
-        val_chrs = np.array([17,18,21,22]).astype(str)
-        test_chrs = np.array([19, 20]).astype(str)
-        gene_meta_info = pd.read_csv(tss_data_path, sep='\t', index_col='region_id')
-        sel_gene_meta_info = gene_meta_info.loc[gene_list]
-        train_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(train_chrs)].index.values
-        val_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(val_chrs)].index.values
-        test_genes = sel_gene_meta_info[sel_gene_meta_info['chr'].isin(test_chrs)].index.values
-    return train_genes, val_genes, test_genes
 
 def select_ckpt_path(ckpt_dir,max_epochs=5,best_ckpt_metric='train_region_region'):
     """

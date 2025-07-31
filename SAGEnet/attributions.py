@@ -8,6 +8,7 @@ import tangermeme.io
 import tangermeme.seqlet
 import tangermeme.annotate
 import pytorch_lightning as pl
+import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset, DataLoader
 
 import SAGEnet.tools
@@ -17,6 +18,108 @@ from SAGEnet.models import pSAGEnet,rSAGEnet
 
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger("numba").setLevel(logging.WARNING)
+
+
+def ppm_to_ic(ppm, epsilon=1e-6):
+    """
+    Converts a Position Probability Matrix (PPM) to an Information Content (IC) matrix.
+    Input can be numpy array or torch Tensor, first dimension should correspond to the 4 nucleoties. 
+    """
+    is_torch=True
+    if ppm.shape[0]!=4: 
+        raise ValueError(f"ppm.shape[0] must be 4, but it is {ppm.shape[0]}")
+    if not isinstance(ppm, torch.Tensor):
+        is_torch=False
+        ppm = torch.from_numpy(ppm)
+
+    ppm = ppm + epsilon
+    ppm = ppm / ppm.sum(dim=0, keepdim=True) # re normalize 
+    entropy = -torch.sum(ppm * torch.log2(ppm), dim=0)
+    ic_total = 2 - entropy
+    ic_matrix = ppm * ic_total
+
+    if not is_torch:
+        ic_matrix=ic_matrix.detach().cpu().numpy()
+
+    return ic_matrix
+
+
+def get_top_motif_labels(annotations,cluster_ids):
+    """ 
+    Given a df of summarized attribution info, return motif labels for use in plotting: 
+        cluster idx, motif name, q-value. 
+    """
+    motif_labels=[]
+    for cluster_id in cluster_ids:
+        rel_annotations=annotations[annotations['cluster_idx']==cluster_id].sort_values(by='bh_corrected_pval', ascending=True).iloc[0] # top match 
+        motif_labels.append(f"{cluster_id}:{rel_annotations['motif_match']}:{rel_annotations['strand']}:{rel_annotations['bh_corrected_pval']:.2e}")
+    return motif_labels
+
+
+def load_seqlet_info(cluster_dir,model_to_attrib_dir_dict):
+    """ 
+    Summarize cluster results from attribution analysis. 
+    Return a dataframe containing, for each seqlet, its idx, its genomic region, the ID of its cluster, which model it came from, its mean attribution, its start idx, and its end idx. 
+    """
+    seqlet_ids = np.load(f'{cluster_dir}seqlet_ids.npy')
+    cluster_assignments = np.load(f'{cluster_dir}clusters.npy')
+    seqlet_ids_to_clusters = pd.DataFrame(index=seqlet_ids)
+    seqlet_ids_to_clusters['cluster_ids'] = cluster_assignments
+    seqlet_ids_to_clusters['region_id'] = [item.split('_')[0] for item in seqlet_ids_to_clusters.index]
+    seqlet_ids_to_clusters['seqlet_idx'] = [int(item.split('_')[1]) for item in seqlet_ids_to_clusters.index]
+    seqlet_ids_to_clusters['model'] = ['_'.join(item.split('_')[2:]) for item in seqlet_ids_to_clusters.index]
+
+    # get attribution info 
+    attribution_effects = []
+    starts = []
+    ends = []
+    for i in range(len(seqlet_ids_to_clusters)):
+        curr_info=seqlet_ids_to_clusters.iloc[i]
+        curr_region = curr_info['region_id']
+        curr_seqlet_idx = curr_info['seqlet_idx']
+        curr_model = curr_info['model']
+        curr_attrib_dir=model_to_attrib_dir_dict[curr_model]
+
+        attrib_data=np.load(f'{curr_attrib_dir}/per_region_attribs/{curr_region}.npy')
+        abs_max=np.max(np.abs(attrib_data))
+        all_seqlets = pd.read_csv(f'{curr_attrib_dir}seqlet_info//{curr_region}.csv',index_col=0)
+        curr_seqlet=all_seqlets.iloc[curr_seqlet_idx]
+        curr_seqlet_len = curr_seqlet['end']-curr_seqlet['start']
+        norm_by_len=curr_seqlet['attribution']/curr_seqlet_len
+        norm_by_abs_max=norm_by_len/abs_max
+        attribution_effects.append(norm_by_abs_max) # normalize 
+        starts.append(int(curr_seqlet['start']))
+        ends.append(int(curr_seqlet['end']))
+
+    seqlet_ids_to_clusters['attribution'] = attribution_effects
+    seqlet_ids_to_clusters['starts'] = starts
+    seqlet_ids_to_clusters['ends'] = ends
+
+    return seqlet_ids_to_clusters
+
+
+def load_annotations(base_dir,cluster_match_threshold=0.05,n_seqlets_threshold=10,output_suffix=''):
+    """ 
+    Summarize annoation results from attribution analysis. 
+    Return a dataframe containing, for each cluster, annotations (including motif match, p value, strand, n_seqlets).
+    """
+    if output_suffix=='':
+        annotations = pd.read_csv(f'{base_dir}annotations.csv',index_col=0)
+    else:
+        annotations = pd.read_csv(f'{base_dir}{output_suffix}/annotations.csv',index_col=0)
+    cluster_assignments = np.load(f'{base_dir}{output_suffix}/clusters.npy')
+    values, counts = np.unique(cluster_assignments, return_counts=True)
+    curr_dict = dict(zip(values, counts))
+    n_seqlets = [curr_dict[cluster_id] for cluster_id in annotations['cluster_idx']]
+    annotations['n_seqlets'] = n_seqlets
+    if cluster_match_threshold>0:
+        annotations=annotations[annotations['bh_corrected_pval']<cluster_match_threshold]
+    if n_seqlets_threshold>0:
+        annotations=annotations[annotations['n_seqlets']>=n_seqlets_threshold]
+    annotations=annotations.drop_duplicates()
+    annotations = annotations.reset_index(drop=True)
+    return annotations
+
 
 def summarize_seqlet_annotations(results_save_dir,gene_list,motif_match_threshold=0.05,motif_database_path='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme',seqlet_threshold=None):
     """
