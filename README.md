@@ -23,6 +23,12 @@ pip install -e .
 When you import SAGEnet at the top of any file, you can access functions from the source code (i.e., files within the SAGEnet directory: attributions.py, data.py, enformer.py, models.py, nn.py, plot.py, tools.py).      
 By installing SAGEnet as an editable package, you can make your own changes to the source code, and these changes will be reflected in your project without having to reinstall the package.  
 
+This pacakge also uses functions in the editable package drg_tools (https://github.com/sasselab/DRG/tree/main). After cloning this repo, you can install the drg_tools editable package in the same way you installed SAGEnet: by running
+```bash
+pip install -e .
+```
+From the folder that contains the `setup.py file.`
+
 Throughout our scripts and example notebooks, we use Weights & Biases (https://wandb.ai/home) to track model training. We recommend setting up a free account so that you can do the same, but if you prefer not to, you can simply delete these lines from your code.
 
 ## Repository Structure 
