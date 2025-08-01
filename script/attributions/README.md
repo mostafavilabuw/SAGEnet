@@ -7,7 +7,7 @@
 First, we save attributions and identify seqlets from the two models we are analyzing (r-SAGE-net and p-SAGE-net). 
 
 After defining your paths: 
-<rsagenet_model_ckpt_path>,<psagenet_model_ckpt_path>
+`<rsagenet_model_ckpt_path>,<psagenet_model_ckpt_path>`
 
 Run the function `get_ref_seqlets` for each model:
 `python analyze_attribs.py --ckpt_path <psagenet_model_ckpt_path> --model_type psagenet --num_eval_regions 5000 --attrib_type grad --train_val_test_regions test --which_fn get_ref_seqlets`
