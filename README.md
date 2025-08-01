@@ -30,7 +30,7 @@ Throughout our scripts and example notebooks, we use Weights & Biases (https://w
   - `model.py` - model architectures (rSAGEnet, pSAGEnet)  
   - `data.py` - custom datasets (PersonalGenomeDataset, ReferenceGenomeDataset, VariantDataset)
   - `enformer.py` - use the Enformer model 
-  - `attributions.py` - save model attributions, identify seqlets, match identified seqlets to motif database 
+  - `attributions.py` - save model attributions, identify seqlets, cluster seqlets, and match cluster to database
   - `nn.py` - model components used in models.py
   - `plot.py` - plotting functions
   - `tools.py` - miscelanious helper functions used throughout the SAGEnet package
@@ -38,7 +38,8 @@ Throughout our scripts and example notebooks, we use Weights & Biases (https://w
 - `input_data/` - input data used to run our analyses
 - `plot_figs/` - code to create the figures in the paper
 - `results_data/` - results from our analyses 
-- `script/` - scripts used to run our analyses 
+- `script/` - scripts used to run our analyses
+  - `attributions/` - script to do ISM on a given region with specified variant inserted or to use the functions in SAGEnet/attributions.py to perform a global motif analyis
   - `baselines/` - scripts to train the baselines used (r-SAGE-net, Enformer, PrediXcan) 
   - `data_preprocessing/` - script to preprocess the input data used in our analyses 
   - `eval_model/` - scripts to evaluate models (p-SAGE-net, r-SAGE-net, Enformer)
