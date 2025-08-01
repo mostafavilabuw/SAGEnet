@@ -45,7 +45,7 @@ Throughout our scripts and example notebooks, we use Weights & Biases (https://w
 - `plot_figs/` - code to create the figures in the paper
 - `results_data/` - results from our analyses 
 - `script/` - scripts used to run our analyses
-  - `attributions/` - script to do ISM on a given region with specified variant inserted or to use the functions in SAGEnet/attributions.py to perform a global motif analyis
+  - `attributions/` - script to do ISM on a given region with specified variant inserted or to use the functions in `SAGEnet/attributions.py` to perform a global motif analyis
   - `baselines/` - scripts to train the baselines used (r-SAGE-net, Enformer, PrediXcan) 
   - `data_preprocessing/` - script to preprocess the input data used in our analyses 
   - `eval_model/` - scripts to evaluate models (p-SAGE-net, r-SAGE-net, Enformer)
