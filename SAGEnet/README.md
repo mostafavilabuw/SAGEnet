@@ -1,31 +1,7 @@
 This directory contains the SAGEnet editable package. 
 
 ## attributions.py 
-- Save attributions (gradients or ISM) and use tangermeme functions to identify seqlets and match identified seqlets to motif database.
-
-#### ISM example (Fig. S4-S6) 
-After defining your paths: 
-`<results_save_dir>,<ckpt_path>,<variant_info_path>,<hg38_file_path>,<tss_data_path>,<finetuned_weights_dir>`  
-
-Run:
-
-p-SAGE-net, insert variant:     
-`$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type psagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --variant_info_path <variant_info_path>`   
-
-p-SAGE-net, do not insert variant:     
-`$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type psagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>` 
-
-r-SAGE-net, insert variant:     
-`$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type rsagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --variant_info_path <variant_info_path>`   
-
-r-SAGE-net, do not insert variant:       
-`$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type rsagenet --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>` 
-
-Enformer, insert variant:     
-`$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type enformer --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --variant_info_path <variant_info_path> --finetuned_weights_dir <finetuned_weights_dir>`   
-
-Enformer, do not insert variant:     
-`$python attributions.py --which_fn save_gene_ism --results_save_dir <results_save_dir> --ckpt_path <ckpt_path> --ism_center_genome_pos 109731286 --gene ENSG00000134202 --model_type enformer --hg38_file_path <hg38_file_path> --tss_data_path <tss_data_path>  --finetuned_weights_dir <finetuned_weights_dir>` 
+- Save model attributions, identify seqlets, cluster seqlets, and match clusters to database. For usage, see READme in /script/attributions/
 
 ## data.py 
 - Initialize PersonalGenomeDataset (from reference genome, WGS data, and y data), ReferenceGenomeDataset (from reference genome, y data), or VariantDataset (from reference genome, variant information). Y data can be any output measured per-individaul -- we use gene expression and DNA methylation in our analyses.
