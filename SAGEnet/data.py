@@ -161,11 +161,9 @@ def modify_personal_seqs_from_records_list(seq, records_list, sample_of_interest
 
 
 def get_personal_tensor(sample_of_interest, region, metadata, input_len, hg38_file_path, contig_prefix, vcf_file_path, train_subs, train_subs_vcf_file_path, only_snps, maf_min,maf_max,allow_reverse_complement,verbose):
-   
     '''
     Gets maternal and paternal DNA sequences based on variant information for a given individual. Returns these sequences as stacked one-hot encoded tensors.
     '''
-    
     region_info = metadata.loc[region]
     chr = region_info["chr"]
     pos = region_info["pos"]

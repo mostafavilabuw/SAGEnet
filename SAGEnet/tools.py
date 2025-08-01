@@ -42,6 +42,7 @@ def select_region_set(enet_path, rand_regions, top_regions_to_consider=5000,seed
         
     return region_list
 
+
 def get_train_val_test_genes(gene_list,tss_data_path='/homes/gws/aspiro17/SAGEnet/input_data/gene-ids-and-positions.tsv', use_enformer_gene_assignments=False,enformer_gene_assignments_path=None):
     """
     Sort a given gene list into train, validaiton, and test based on either chromsome split or enformer gene assignments. 
@@ -135,6 +136,7 @@ def get_pos_idx_in_seq(gene, pos,tss_data_path='/homes/gws/aspiro17/seqtoexp/Per
     if rc and allow_reverse_complement: 
         pos_idx=input_len-pos_idx
     return pos_idx
+
 
 def get_sample_names(vcf_file_path):
     """

@@ -8,16 +8,204 @@ import tangermeme.io
 import tangermeme.seqlet
 import tangermeme.annotate
 import pytorch_lightning as pl
-import matplotlib.pyplot as plt
+from statsmodels.stats.multitest import multipletests
 from torch.utils.data import TensorDataset, DataLoader
-
+import drg_tools.motif_analysis
+import drg_tools.io_utils
+import pickle 
+from sklearn.cluster import AgglomerativeClustering
+from memelite import tomtom
 import SAGEnet.tools
-from SAGEnet.data import ReferenceGenomeDataset, VariantDataset
-from SAGEnet.enformer import Enformer
-from SAGEnet.models import pSAGEnet,rSAGEnet
 
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger("numba").setLevel(logging.WARNING)
+
+def cwm_to_ppm(cwm):
+    """
+    Converts a Contriubtion Weight Matrix (CWM) (i.e., from model attributions) to a Position Probabilty Matrix (PPM). 
+    Input can be numpy array or torch Tensor, first dimension should correspond to the 4 nucleoties. 
+    """
+    is_torch=True
+    if cwm.shape[0]!=4: 
+        raise ValueError(f"cwm.shape[0] must be 4, but it is {cwm.shape[0]}")
+    if not isinstance(cwm, torch.Tensor):
+        is_torch=False
+        cwm = torch.from_numpy(cwm)
+
+    cwm[cwm != cwm] = 0 # deal with any nan values 
+    abs_cwm = torch.abs(cwm)
+    sum_cwm = torch.sum(abs_cwm, axis=0, keepdim=True)
+    ppm = abs_cwm / sum_cwm
+
+    if not is_torch:
+        ppm=ppm.detach().cpu().numpy()
+    return ppm
+
+def annotate_seqlets(cluster_seqlet_dir, database_path='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme', n_top_motif_matches=5, pval_thresh=0.05):
+    """
+    Use tomtom to match clusters in the provided directory to a specified motif database. Transform cluster CWMs to PPMs before matching. 
+    Save the top 5 most significant (BH-corrected) matches (or all significant if more than 5 are significant).
+    """
+    my_motifs = tangermeme.io.read_meme(f'{cluster_seqlet_dir}cluster_cwms.meme')
+    my_motif_names = list(my_motifs.keys())
+
+    for motif_name in my_motif_names:
+        my_motifs[motif_name] = cwm_to_ppm(my_motifs[motif_name])
+    my_motif_values = [my_motifs[name] for name in my_motif_names]
+
+    database_motifs = tangermeme.io.read_meme(database_path)
+    database_motif_names = list(database_motifs.keys())
+    database_motif_values = [database_motifs[name] for name in database_motif_names]
+
+    print(f'aligning {len(my_motif_values)} provided motifs with {len(database_motif_values)} from {database_path}')
+    p, scores, offsets, overlaps, strands = tomtom(my_motif_values, database_motif_values)
+
+    raw_p_df = pd.DataFrame(index=my_motif_names, columns=database_motif_names, data=p)
+    _, pvals_corrected, _, _ = multipletests(p.flatten(), method='fdr_bh')
+    pvals_corrected = pvals_corrected.reshape(p.shape[0], p.shape[1])
+    bh_p_df = pd.DataFrame(index=my_motif_names, columns=database_motif_names, data=pvals_corrected)
+
+    all_rows = []
+    all_indices = []
+
+    for i, idx in enumerate(raw_p_df.index):
+        raw_row = raw_p_df.loc[idx]
+        corrected_row = bh_p_df.loc[idx]
+
+        # get top k hits
+        top_hits = raw_row.nsmallest(n_top_motif_matches)
+
+        # get all hits with bh-corrected p < threshold
+        significant_hits = corrected_row[corrected_row < pval_thresh]
+
+        # combine and deduplicate matches
+        combined_matches = pd.concat([top_hits, significant_hits]).drop_duplicates()
+
+        row_data = []
+        for motif_match in combined_matches.index:
+            raw_pval = raw_row[motif_match]
+            bh_pval = corrected_row[motif_match]
+            db_idx = database_motif_names.index(motif_match)
+            strand = int(strands[i, db_idx])
+            row_data.append({
+                "cluster_idx": idx,
+                "motif_match": motif_match,
+                "raw_pval": raw_pval,
+                "bh_corrected_pval": bh_pval,
+                "strand": strand
+            })
+
+        for row in row_data:
+            all_rows.append(row)
+            all_indices.append(idx)
+
+    result_df = pd.DataFrame(all_rows, index=all_indices).drop_duplicates()
+    result_df.to_csv(f'{cluster_seqlet_dir}annotations.csv')
+
+
+def cluster_seqlets(dataset,comb_results_save_dir,results_save_dir_a,results_save_dir_b,a_label,b_label,cluster_seqlet_threshold,device,batch_size,zero_center_attribs=False,linkage='average',distance_threshold=.05,cluster_metric='correlation_pvalue'):
+    """
+    Use torch_compute_similarity_motifs and AgglomerativeClustering to first compute a metric of similarity between the motifs (saved as CWMs)
+        and then cluster using that metric. Using comb_results_save_dir,results_save_dir_a,results_save_dir_b, you can specify if you are clustering 
+        motifs saved in a single directory (i.e. for single model analysis) or two directories (i.e. combined model analysis).
+    Saves cluster assignments as numpy array, cluster CWMs as meme. 
+    """
+    if comb_results_save_dir=='':
+        print('clustering seqlets from single directory')
+        comb_results_save_dir=results_save_dir_a
+        attrib_res_dirs = [results_save_dir_a]
+        attrib_res_dir_labels=[a_label]
+    else: 
+        print('clustering seqlets two directories')
+        attrib_res_dirs = [results_save_dir_a,results_save_dir_b]
+        attrib_res_dir_labels=[a_label,b_label]
+    
+    os.makedirs(comb_results_save_dir, exist_ok=True)
+    print(f'saving cluster results to {comb_results_save_dir}')
+    
+    normed_seqlets = []
+    seqlet_ids = []
+    region_list=dataset.metadata.index
+
+    for i, data in enumerate(dataset):
+        print(i)
+        ref_seq, *others=data
+        ref_seq = ref_seq.numpy() # [4,seq_len]
+        region = region_list[i]
+
+        for attrib_res_dir_idx, attrib_res_dir in enumerate(attrib_res_dirs):
+            
+            attrib_res_dir_label=attrib_res_dir_labels[attrib_res_dir_idx]
+            
+            attrib = np.load(f'{attrib_res_dir}per_region_attribs/{region}.npy')[0,:,:] # from (1,4,seq_len) to (4,seq_len)
+            seqlet_info=pd.read_csv(f'{attrib_res_dir}seqlet_info/{region}.csv',index_col=0)
+            if zero_center_attribs: 
+                attrib=SAGEnet.tools.zero_center_attributions(attrib,axis=0)
+            attrib=attrib*ref_seq
+
+            seqlet_info=seqlet_info[seqlet_info['p-value']<cluster_seqlet_threshold]
+            for seqlet_idx in range(len(seqlet_info)):
+                seqlet_id=f'{region}_{seqlet_idx}_{attrib_res_dir_label}'
+                seqlet_ids.append(seqlet_id)
+                seqlet_attrib = attrib[:,int(seqlet_info.iloc[seqlet_idx]['start']):int(seqlet_info.iloc[seqlet_idx]['end'])]
+                max_abs = seqlet_attrib.flat[np.argmax(np.abs(seqlet_attrib))]
+                norm=seqlet_attrib/max_abs # so that all attribs have the same weight in combine, and motifs with opposite directions can be combined 
+                normed_seqlets.append(norm.T) # norm motif takes shape [seq_len,4]
+    
+    print(f'running torch_compute_similarity_motifs on {len(normed_seqlets)} seqlets')
+    motif_distance, offsets, revcomp_matrix = drg_tools.motif_analysis.torch_compute_similarity_motifs(normed_seqlets, normed_seqlets,device=device,batchsize=batch_size,return_alignment=True,reverse_complement=True,padding=0,metric = cluster_metric, bk_freq=0) # padding=0 bc we're clustering seqlets 
+    
+    with open(f'{comb_results_save_dir}normed_seqlets.pkl', 'wb') as f:
+        pickle.dump(normed_seqlets, f)
+
+    print('saving res')
+    np.save(f'{comb_results_save_dir}motif_distance',motif_distance)
+    np.save(f'{comb_results_save_dir}offsets',offsets)
+    np.save(f'{comb_results_save_dir}revcomp_matrix',revcomp_matrix)
+    np.save(f'{comb_results_save_dir}seqlet_ids',seqlet_ids)
+
+    print('agglomerative clustering')
+    clustering = AgglomerativeClustering(n_clusters = None, metric = 'precomputed', linkage = linkage, distance_threshold=distance_threshold)
+                               
+    clustering.fit(motif_distance)  
+    clusters = clustering.labels_
+    cluster_ids, n_seqlets = np.unique(clusters, return_counts=True)
+    np.save(f'{comb_results_save_dir}clusters',clusters)
+
+    cluster_cwms = drg_tools.motif_analysis.combine_pwms(normed_seqlets, clustering.labels_, 1.-motif_distance, offsets, revcomp_matrix)
+    print(f'len(cluster_cwms):{len(cluster_cwms)}')
+    drg_tools.io_utils.write_meme_file(cluster_cwms, cluster_ids.astype(str), 'ACGT', f'{comb_results_save_dir}cluster_cwms.meme', round = 2)
+
+
+def identify_seqlets(dataset, results_save_dir,zero_center_attribs,additional_flanks=0,threshold=0.05):
+    """
+    Given model attributions (ex, gradients or ISM, shape [1,4,seq_len] per region), identify seqlests using tangermeme recursive_seqlets. 
+    dataset should be ReferenceGenomeDataset. 
+    Saves seqlet information as csv. 
+    """
+    seqlets_dir=f'{results_save_dir}seqlet_info/'
+    attrib_dir=f'{results_save_dir}per_region_attribs/'
+    os.makedirs(seqlets_dir, exist_ok=True)
+    os.makedirs(attrib_dir, exist_ok=True)
+    print(f'saving seqlets to {seqlets_dir}')
+    
+    region_list=dataset.metadata.index
+
+    for i, data in enumerate(dataset):
+        print(i)
+        ref_seq, *others=data
+        ref_seq = ref_seq.numpy() # [4,seq_len]
+        attrib=np.load(f'{attrib_dir}{region_list[i]}.npy')[0,:,:] # from (1,4,seq_len) to (4,seq_len)
+        if zero_center_attribs: 
+            attrib=SAGEnet.tools.zero_center_attributions(attrib,axis=0)
+        attrib_for_seqlets=np.sum(attrib*ref_seq,axis=0) # get attributions at reference sequence 
+        try: 
+            seqlets = tangermeme.seqlet.recursive_seqlets(attrib_for_seqlets[np.newaxis, :], additional_flanks=additional_flanks,threshold=threshold)
+
+        except Exception as e:
+            print(f"error in recursive_seqlets: {e}")
+            seqlets= pd.DataFrame()
+        seqlets.to_csv(f'{seqlets_dir}{region_list[i]}.csv')
 
 
 def ppm_to_ic(ppm, epsilon=1e-6):
@@ -119,51 +307,6 @@ def load_annotations(base_dir,cluster_match_threshold=0.05,n_seqlets_threshold=1
     annotations=annotations.drop_duplicates()
     annotations = annotations.reset_index(drop=True)
     return annotations
-
-
-def summarize_seqlet_annotations(results_save_dir,gene_list,motif_match_threshold=0.05,motif_database_path='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme',seqlet_threshold=None):
-    """
-    Given a directory containing per-gene files of seqlets and annotations, summarize these reuslts across genes. 
-    
-    Paramters: 
-    - results_save_dir: String path to directory containing per-gene seqlet annotations. 
-    - gene_list: List of genes (as strings) for which to summarize seqlet annotations. 
-    - motif_match_threshold: Float threshold for match between seqlets and motifs from database. 
-    - motif_database_path: String path to motif database in .meme format used to annotate seqlets. 
-    - seqlet_threshold: Float threshold for seqlet identification. If None, all seqlets in annotation dataframes are used. 
-    
-    Returns: lists of across-gene summaries for all seqlets and all seqlets that match below motif_match_threshold to a known motif. 
-    """
-        
-    motifs = tangermeme.io.read_meme(motif_database_path)
-    motif_names = list(motifs.keys())
-    
-    num_seqlets = 0
-    signif_match_num_seqlets = 0
-    starts = []
-    signif_match_starts = []
-    motifs = []
-    signif_match_motifs = []
-    per_gene_matches= []
-
-    for gene in gene_list: 
-        res = pd.read_csv(f'{results_save_dir}{gene}.csv',index_col=0)
-        if len(res)>0: 
-            if seqlet_threshold is not None: 
-                res=res[res['p-value']<seqlet_threshold]
-            res['corrected_pvals'] = res['match_rank_0_pval'] * len(res) * len(motif_names) # Bonferroni correction 
-            signif_res = res[res['corrected_pvals']<motif_match_threshold]
-            num_seqlets+=len(res)
-            signif_match_num_seqlets+=len(signif_res)
-            per_gene_matches.append(len(signif_res))
-            starts.append(res['start'])
-            signif_match_starts.append(signif_res['start'])
-            motifs.append([item.split('.')[0] for item in res['match_rank_0']])
-            signif_match_motifs.append([item.split('.')[0] for item in signif_res['match_rank_0']])            
-        else: 
-            per_gene_matches.append(0)
-
-    return [num_seqlets, signif_match_num_seqlets, np.concatenate(starts),np.concatenate(signif_match_starts), np.concatenate(motifs),np.concatenate(signif_match_motifs),per_gene_matches]
 
 
 def save_ref_attribs(model, dataset,model_type,results_save_dir,attrib_type='grad', device=0,batch_size=12,num_workers=8): 
@@ -290,112 +433,6 @@ def save_ref_attribs(model, dataset,model_type,results_save_dir,attrib_type='gra
         if model_type!='psagenet':
             np.save(f'{results_save_dir}per_region_attribs/{region_list[i]}',attrib)
     
-    
-def save_gene_ism(gene, results_save_dir, ckpt_path, ism_center_genome_pos, ism_win_size,hg38_file_path,tss_data_path,input_len,device,model_type,allow_reverse_complement,finetuned_weights_dir,variant_info_path,enformer_input_len=393216):
-    """
-    Given a gene (with optional variant inserted), perform ISM by mutating each base within a specified window around a specified center position. 
-    
-    Parameters: 
-    - gene: String gene ENSG id. 
-    - results_save_dir: String path to directory in which to save ISM res.  
-    - ckpt_path: String ckpt path to model to use for ISM. Only used if model_type!=enformer. 
-    - ism_center_genome_pos: Integer center position (coordinate in genome) around which to perform ISM. 
-    - ism_win_size: Integer window size in which to do ISM, centered on ism_center_genome_pos. 
-    - hg38_file_path: String path to the human genome (hg38) reference file.
-    - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
-    - input_len: Integer, size of the genomic window for model input. 
-    - device: Integer, GPU index. 
-    - model_type: String type of model to evaluate, from {'psagenet, rsagenet, enformer'}. 
-    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand. 
-    - finetuned_weights_dir: String of directory containing 'coef.npy' and 'intercept.npy' used to finetune Enformer predictions. 
-    - variant_info_path: String path to DataFrame containing variant information, specifially the columns 'gene', 'chr', 'pos', and 'alt'. If None, no variant is inserted. 
-    - enformer_input_len: Integer input length to use for dataset to Enformer model. 
-    
-    Saves: Numpy array of attributions (zero-centered), shape (4, input_len). 
-    """
-    model_type=model_type.lower()
-    if model_type=='enformer':
-        input_len=enformer_input_len
-
-    # determine ISM start and stop idxs in sequence 
-    start_of_interest = ism_center_genome_pos-ism_win_size//2
-    end_of_interest = ism_center_genome_pos+ism_win_size//2
-    start_ism_idx = SAGEnet.tools.get_pos_idx_in_seq(gene, start_of_interest,tss_data_path,input_len,allow_reverse_complement=allow_reverse_complement)
-    end_ism_idx = SAGEnet.tools.get_pos_idx_in_seq(gene, end_of_interest,tss_data_path,input_len,allow_reverse_complement=allow_reverse_complement)
-    start_ism_idx=min(start_ism_idx,end_ism_idx)
-    end_ism_idx=start_ism_idx+ism_win_size
-
-    # name results_save_dir 
-    if results_save_dir=='':
-        results_save_dir = os.path.dirname(ckpt_path) # by default, save results in the directory containing model ckpt 
-    results_save_dir=f'{results_save_dir}/{model_type}_model/ism/'
-    os.makedirs(results_save_dir, exist_ok=True)
-
-    # load model 
-    if model_type=='rsagenet':
-        print('rsagenet model')
-        model = rSAGEnet.load_from_checkpoint(checkpoint_path=ckpt_path,using_personal_dataset=False,predict_from_personal=False)
-        single_seq=True
-    elif model_type=='psagenet':
-        print('psagenet model')
-        model = pSAGEnet.load_from_checkpoint(checkpoint_path=ckpt_path)
-        single_seq=False
-    elif model_type=='enformer':
-        os.environ["CUDA_VISIBLE_DEVICES"]=str(device)
-        model = Enformer(finetuned_weights_dir=finetuned_weights_dir)
-        single_seq=True
-    if model_type!='enformer':
-        model=model.to(device).eval()
-
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
-    selected_genes_meta = gene_meta_info.loc[[gene]]
-    if variant_info_path is None: 
-        print('no variant info provided, ISM on reference sequence')
-        dataset = ReferenceGenomeDataset(metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=single_seq)
-        insert_variant=0
-    else: 
-        print('variant info provided, ISM on reference sequence with variant inserted')
-        variant_info = pd.read_csv(variant_info_path, sep="\t")
-        if variant_info.iloc[0]['gene']!=gene: 
-            raise ValueError(f"gene in variant info ({variant_info.iloc[0]['gene']}) does not match gene provided ({gene})")
-        dataset = VariantDataset(metadata=selected_genes_meta,hg38_file_path=hg38_file_path,variant_info=variant_info, allow_reverse_complement=allow_reverse_complement, input_len=input_len,single_seq=single_seq,insert_variants=True)
-        insert_variant=1
-    x = dataset[0][0].unsqueeze(0).numpy()
-    
-    if model_type == 'psagenet': 
-        ism_res = np.zeros((2,4,ism_win_size,2)) # the 0th dim is for ref or personal, 1st is nucleotide, 2nd is ISM window size,  3rd is for first model output or 2nd model output 
-        for ref_or_personal_idx in [0,1]: # which sequence we are mutating 
-            for len_idx in range(ism_win_size):
-                pos_idx = len_idx+start_ism_idx
-                for nuc_idx in range(4): 
-                    mutated_seq = x.copy()
-                    mutated_seq[0,ref_or_personal_idx,:4,pos_idx] = np.zeros(4)
-                    mutated_seq[0,ref_or_personal_idx,nuc_idx,pos_idx]=1
-                    mutated_seq=torch.from_numpy(mutated_seq).to(device)
-                    ism_res[ref_or_personal_idx,nuc_idx,len_idx,:] = model(mutated_seq)[0].detach().cpu().numpy()
-    else: # rSAGEnet or enformer 
-        ism_res = np.zeros((4,ism_win_size)) 
-        for len_idx in range(ism_win_size):
-            print(f'len_idx:{len_idx}')
-            pos_idx = len_idx+start_ism_idx
-            for nuc_idx in range(4): 
-                mutated_seq = x.copy()
-                mutated_seq[0,:,pos_idx] = np.zeros(4)
-                mutated_seq[0,nuc_idx,pos_idx]=1
-                mutated_seq=torch.from_numpy(mutated_seq)
-                if model_type=='enformer': 
-                    ism_res[nuc_idx,len_idx] = model.predict_on_batch(mutated_seq,save_mode='finetuned')
-                else: 
-                    mutated_seq=mutated_seq.to(device)
-                    ism_res[nuc_idx,len_idx] = model(mutated_seq)[0].detach().cpu().numpy() 
-                
-    ism_res = SAGEnet.tools.zero_center_attributions(ism_res)
-    if insert_variant:         
-        np.save(f"{results_save_dir}{gene}_{start_of_interest}_to_{end_of_interest}_pos_{variant_info.iloc[0]['pos']}_{variant_info.iloc[0]['ref']}_to_{variant_info.iloc[0]['alt']}", ism_res)
-    else: 
-        np.save(f'{results_save_dir}{gene}_{start_of_interest}_to_{end_of_interest}',ism_res)
-
-
 def get_annotated_seqlets(arr,seq,additional_flanks=2,threshold=.05,motif_database_path="/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme",n_nearest=5):
     """
     Given an attribution array (zero-centered) and sequence for that array, identify seqlets (and annotate seqlets if motif database is provided). 
@@ -433,117 +470,4 @@ def get_annotated_seqlets(arr,seq,additional_flanks=2,threshold=.05,motif_databa
     except Exception as e:
         print(f"error in get_annotated_seqlets: {e}")
         return pd.DataFrame()
-
-
-def mult_gene_save_annotated_seqlets(attrib_path,gene_list_path, hg38_file_path,tss_data_path,input_len,additional_flanks,motif_database_path,n_nearest,threshold,allow_reverse_complement):
-    """
-    Run get_annotated_seqlets for genes in a specified list, given their corresponding attributions. 
-    Assumes that a file called gene_list exists in the same directory as attrib_path and specifies the gene order of attributions in attrib_path. 
-    
-    Paramters: 
-    - attrib_path: String path to numpy array containing attributions of shape (num_genes, 4, input_len). 
-    - gene_list_path: String path to gene list for which to save annotated seqlets. 
-    - hg38_file_path: String path to the human genome (hg38) reference file.
-    - tss_data_path: String path to DataFrame containing gene-related information, specifically the columns 'chr', 'tss', and 'strand'. 
-    - input_len: Integer, size of the genomic window model input. 
-    - additional_flanks: Integer additional_flanks input to tangermeme.seqlet.recursive_seqlets. 
-    - motif_database_path: String path to motif database in .meme format to use to annotate seqlets. 
-    - n_nearest: Integer input to tangermeme.annotate.annotate_seqlets specifying number of top annotations to provide. 
-    - threshold: Float pvalue threshold input to tangermeme.seqlet.recursive_seqlets. 
-    - allow_reverse_complement: Boolean, whether or not to reverse complement genes on the negative strand. Should match what was used to save attributions. 
-
-    Saves: seqlet and annotation Dataframe per gene within a directory created inside of the same directory as attrib_path. 
-    """
-    gene_meta_info = pd.read_csv(tss_data_path, sep="\t",index_col='region_id')
-
-    attribs_save_dir = f'{os.path.dirname(attrib_path)}/'
-    attribs = np.load(attrib_path)
-    attribs=SAGEnet.tools.zero_center_attributions(attribs)
-    attribs_label = attrib_path.split('/')[-1].split('.')[0] # label for directory in which to save annotations -- filename of attributions 
-
-    attribs_gene_list = np.load(f'{attribs_save_dir}gene_list.npy',allow_pickle=True)
-    use_gene_list = np.load(gene_list_path,allow_pickle=True)
-    use_gene_list_idxs = [np.where(attribs_gene_list == value)[0][0] for value in use_gene_list]
-    
-    attrib_analysis_save_dir = f'{attribs_save_dir}{attribs_label}_seqlet_analysis/additional_flanks={additional_flanks}/'
-    os.makedirs(attrib_analysis_save_dir, exist_ok=True)
-    
-    for use_gene_idx in use_gene_list_idxs: 
-        gene = attribs_gene_list[use_gene_idx]
-        print(gene)
-        attrib = attribs[use_gene_idx,:]
-        selected_genes_meta = gene_meta_info.loc[[gene]]
-        ref_dataset = ReferenceGenomeDataset(metadata=selected_genes_meta,hg38_file_path=hg38_file_path,allow_reverse_complement=allow_reverse_complement,input_len=input_len,single_seq=True)
-        ref_seq = ref_dataset[0][0].numpy()
-        annotated_seqlets =  get_annotated_seqlets(attrib,ref_seq,additional_flanks=additional_flanks,threshold=threshold,motif_database_path=motif_database_path,n_nearest=n_nearest)
-        annotated_seqlets.to_csv(f'{attrib_analysis_save_dir}{gene}.csv')
               
-
-if __name__ == '__main__':  
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ckpt_path")
-    parser.add_argument("--results_save_dir")
-    parser.add_argument("--model_type")
-    parser.add_argument("--gene")
-    parser.add_argument("--variant_info_path",default=None)
-    parser.add_argument("--attrib_path")
-    parser.add_argument("--gene_list_path")
-    parser.add_argument("--ism_center_genome_pos",type=int)
-    
-    parser.add_argument("--ism_win_size",default=150,type=int)
-    parser.add_argument("--num_genes",default=1000,type=int)
-    parser.add_argument('--device', default=0,type=int)
-    parser.add_argument('--input_len', type=int, default=40000)
-    parser.add_argument("--best_ckpt_metric",default='train_gene_gene',type=str)
-    parser.add_argument("--max_epochs",default=10,type=int)
-    parser.add_argument("--identify_best_ckpt",default=1,type=int)
-    parser.add_argument("--rand_genes",type=int,default=0)
-    parser.add_argument("--top_genes_to_consider",type=int,default=5000)
-    parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument("--allow_reverse_complement",type=int,default=1)
-    parser.add_argument("--gene_idx_start",type=int,default=0)
-    parser.add_argument('--additional_flanks', type=int, default=2)
-    parser.add_argument('--n_nearest', type=int, default=5)
-    parser.add_argument('--threshold', type=int, default=.05)
-    
-    parser.add_argument('--hg38_file_path', default='/data/tuxm/project/Decipher-multi-modality/data/genome/hg38.fa')
-    parser.add_argument('--predixcan_res_path', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/results_data/predixcan/rosmap_pearson_corr.csv')
-    parser.add_argument('--tss_data_path', default='/homes/gws/aspiro17/seqtoexp/PersonalGenomeExpression-dev/input_data/gene-ids-and-positions.tsv')
-    parser.add_argument('--finetuned_weights_dir',default='/data/mostafavilab/personal_genome_expr/final_results/enformer/ref_seq_all_tracks/')
-    parser.add_argument('--motif_database_path', default='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme')
-
-    parser.add_argument("--which_fn")
-
-    args = parser.parse_args()
-        
-    if args.which_fn == 'mult_gene_save_annotated_seqlets': 
-        mult_gene_save_annotated_seqlets(
-        attrib_path=args.attrib_path,
-        gene_list_path=args.gene_list_path,
-        hg38_file_path=args.hg38_file_path,
-        tss_data_path=args.tss_data_path,
-        input_len=args.input_len,
-        additional_flanks=args.additional_flanks,
-        motif_database_path=args.motif_database_path,
-        n_nearest=args.n_nearest,
-        threshold=args.threshold,
-        allow_reverse_complement=args.allow_reverse_complement
-    )
-        
-    if args.which_fn == 'save_gene_ism': 
-        save_gene_ism(
-        gene=args.gene,
-        results_save_dir=args.results_save_dir,
-        ckpt_path=args.ckpt_path,
-        ism_center_genome_pos=args.ism_center_genome_pos,
-        ism_win_size=args.ism_win_size,
-        hg38_file_path=args.hg38_file_path,
-        tss_data_path=args.tss_data_path,
-        input_len=args.input_len,
-        device=args.device,
-        model_type=args.model_type,
-        allow_reverse_complement=args.allow_reverse_complement,
-        finetuned_weights_dir=args.finetuned_weights_dir,
-        variant_info_path=args.variant_info_path
-    )

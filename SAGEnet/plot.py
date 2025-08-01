@@ -14,10 +14,14 @@ from matplotlib.gridspec import GridSpec
 import SAGEnet.tools
 import SAGEnet.attributions
 
-def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',motif_database_path='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme',title_left_pos=.25,title_upper_pos=.95,linkage_metric='complete',distance_threshold=.4,show_p=False):
-    # motif_values should be list, each item should be [4, len]
-    database_motifs = tangermeme.io.read_meme(motif_database_path)
 
+def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',motif_database_path='/data/mostafavilab/personal_genome_expr/data/H12CORE_meme_format.meme',title_left_pos=.25,title_upper_pos=.95,linkage_metric='complete',distance_threshold=.4,show_p=False):
+    """
+    Plot motifs as dendrogram, clustered by similarity. Include motif CWM, database match PPM scaled by IC, and boxplot of seqlet mean attributions. 
+    motif_values should be list, each item should be [4, len]. 
+    """
+
+    database_motifs = tangermeme.io.read_meme(motif_database_path)
     flipped_list = [motif.transpose() for motif in motif_values]
 
     cwm_correlation = drg_tools.motif_analysis.torch_compute_similarity_motifs(
@@ -27,16 +31,13 @@ def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',m
         return_alignment=False
     )
 
-    #all_seqlet_effects = [SAGEnet_DNAm.attributions.get_seqlet_effects(base_dir, cluster_id) for cluster_id in motif_ids]
     all_seqlet_effects = [seqlet_info[seqlet_info['cluster_ids']==cluster_id]['attribution'].values for cluster_id in motif_ids]
-
     all_seqlet_effects_flat = np.concatenate(all_seqlet_effects)
     global_min = np.min(all_seqlet_effects_flat)
     global_max = np.max(all_seqlet_effects_flat)
     margin = (global_max - global_min) * 0.05
     xlim = (global_min - margin, global_max + margin)
 
-    #dist_matrix = 1 - np.clip(cwm_correlation, 0, 1)
     dist_matrix=cwm_correlation
     np.fill_diagonal(dist_matrix, 0)
 
@@ -47,8 +48,6 @@ def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',m
         distance_threshold=distance_threshold
     )
     clustering.fit(dist_matrix)
-
-    labels = clustering.labels_
     condensed_dist = squareform(dist_matrix)
     linkage_matrix = linkage(condensed_dist, method='average')
 
@@ -60,7 +59,6 @@ def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',m
         hspace=0.8
     )
 
-    #ax_title = fig.add_axes([0.5, 0.92, .5, .05])
     ax_title = fig.add_axes([title_left_pos, title_upper_pos, .5, .05])
     ax_title.text(0.5, 0.5, title, ha='center', va='center', fontsize=14)
     ax_title.axis('off')
@@ -85,7 +83,6 @@ def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',m
 
     for i, idx in enumerate(motif_order):
         motif = motif_values[idx]
-        #data = all_seqlet_effects[idx]
         data = all_seqlet_effects[motif_order[i]]
 
         # motif plot (first)
@@ -127,7 +124,6 @@ def plot_motif_tree(seqlet_info,motif_values, motif_ids,motif_labels, title='',m
             ax_motif2.set_title(title_str, fontsize=10, pad=5,color='gray')
         else: 
             ax_motif2.set_title(title_str, fontsize=10, pad=5)
-
 
         # boxplot + scatter
         ax_box = fig.add_subplot(gs[i, 3])
@@ -458,16 +454,13 @@ def boxplot_compare(arra, arrb, arra_t='', arrb_t='', save_dir=None, title='',
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height)) 
 
-    # Label text with n, mean, median
     arra_t = f"{arra_t} \n n={len(arra)} \n mean={np.mean(arra):.2f} \n median={np.median(arra):.2f}"
     arrb_t = f"{arrb_t} \n n={len(arrb)} \n mean={np.mean(arrb):.2f} \n median={np.median(arrb):.2f}"
 
-    # Plot boxplots
     ax.boxplot([arra, arrb], showfliers=False)
     ax.set_xticks([1, 2])
     ax.set_xticklabels([arra_t, arrb_t], fontsize=fontsize)
 
-    # Statistical test
     if include_stat_test: 
         if stat_test == 'wilcoxon':
             stat, p_value = scipy.stats.wilcoxon(arra, arrb)
@@ -484,17 +477,13 @@ def boxplot_compare(arra, arrb, arra_t='', arrb_t='', save_dir=None, title='',
         if title != '':
             ax.set_title(title, fontsize=fontsize)
 
-    # Axis label
     ax.set_ylabel(ylabel, fontsize=fontsize)
 
-    # Remove top and right spines
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # Tick font size
     ax.tick_params(axis='y', labelsize=fontsize)
 
-    # Layout and save/show
     plt.tight_layout()
     if save_dir is not None: 
         os.makedirs(save_dir, exist_ok=True)
@@ -622,7 +611,6 @@ def plot_hist(data, xlabel='', ylabel='', title='', save_dir=None, logscale=Fals
         save_name = title
     fig, ax = plt.subplots() 
 
-    # Plot histograms
     if additional_data is not None:
         ax.hist(additional_data, color='darkgreen', bins=bins, label=additional_data_t, alpha=0.5)
         ax.hist(data, color='darkred', bins=bins, label=data_t, alpha=0.5)
@@ -630,11 +618,9 @@ def plot_hist(data, xlabel='', ylabel='', title='', save_dir=None, logscale=Fals
     else: 
         ax.hist(data, color='cornflowerblue', bins=bins, alpha=1)
 
-    # Axis labels
     ax.set_xlabel(xlabel, fontsize=fontsize)
     ax.set_ylabel(ylabel, fontsize=fontsize)
 
-    # Title
     if show_mean:
         ax.set_title(f"{title} \n n={len(data)} \n mean={np.nanmean(data):.2f} \n median={np.median(data):.2f}", fontsize=fontsize)
         ax.axvline(np.nanmean(data), color='darkorange', linestyle='--', linewidth=1)
@@ -644,15 +630,12 @@ def plot_hist(data, xlabel='', ylabel='', title='', save_dir=None, logscale=Fals
         else: 
             ax.set_title(f"{title}", fontsize=fontsize)  
 
-    # Optional vertical lines
     if show_x0: 
         ax.axvline(0, color='black', linewidth=1)
 
-    # Log scale
     if logscale:
         ax.set_yscale('log')
     
-    # Axis limits
     current_xlim = ax.get_xlim()
     current_ylim = ax.get_ylim()
 
@@ -666,14 +649,11 @@ def plot_hist(data, xlabel='', ylabel='', title='', save_dir=None, logscale=Fals
         new_ylim_max = ylim_max if ylim_max is not None else current_ylim[1]
         ax.set_ylim(new_ylim_min, new_ylim_max)
     
-    # Remove top and right spines
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # Set tick font sizes
     ax.tick_params(axis='both', which='major', labelsize=fontsize)
 
-    # Save or show
     if save_dir is not None: 
         os.makedirs(save_dir, exist_ok=True)
         plt.savefig(f'{save_dir}{save_name}.pdf', format='pdf', dpi=300, bbox_inches='tight')   
