@@ -11,6 +11,7 @@ After defining your paths:
 
 Run the function `get_ref_seqlets` for each model:
 `python analyze_attribs.py --ckpt_path <psagenet_model_ckpt_path> --model_type psagenet --num_eval_regions 5000 --attrib_type grad --train_val_test_regions test --which_fn get_ref_seqlets`
+
 `python analyze_attribs.py --ckpt_path <rsagenet_model_ckpt_path> --model_type rsagenet --num_eval_regions 5000 --attrib_type grad --train_val_test_regions test --which_fn get_ref_seqlets`
 
 Next, we jointly cluser the seqlets identified by each model, and match these seqlets to our motif database. 
