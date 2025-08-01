@@ -23,7 +23,7 @@ Define these paths based on where the results from the previous step are saved (
 Define this path to a motif database (in meme format): 
 `<database_path>`
 
-And define a path to save the clustering and annotation results: 
+And define a path for where save the clustering and annotation results: 
 `<combined_clustering_annotation_save_dir>`
 
 Then run:
