@@ -15,7 +15,7 @@ mamba activate SAGEnet
 
 Mamba is a faster implementation of the conda package manager. If you don't already have mamba installed, you can install it using conda (https://anaconda.org/conda-forge/mamba) or use conda instead. 
 
-Then, install the SAGEnet editable package: 
+Then, install the `SAGEnet` editable package: 
 ```bash
 pip install -e .
 ```
