@@ -27,7 +27,7 @@ And define a path for where save the clustering and annotation results:
 `<combined_clustering_annotation_save_dir>`
 
 Then run:
-`python analyze_attribs.py --num_eval_regions 5000 --attrib_type grad --train_val_test_regions test --device 0 --which_fn cluster_and_annotate  --results_save_dir_a <rsagenet_attrib_save_dir> --a_label rsagenet --results_save_dir_b <psagenet_attrib_save_dir> --b_label psagenet --results_save_dir <combined_clustering_annotation_save_dir> --database_path <database_path>``
+`python analyze_attribs.py --num_eval_regions 5000 --attrib_type grad --train_val_test_regions test --device 0 --which_fn cluster_and_annotate  --results_save_dir_a <rsagenet_attrib_save_dir> --a_label rsagenet --results_save_dir_b <psagenet_attrib_save_dir> --b_label psagenet --results_save_dir <combined_clustering_annotation_save_dir> --database_path <database_path>`
 
 To save the clustering and annotation results to that directory. 
 To see how to go from the results saved in this step to the final Fig. 3c, see the section "DNAm" in `plot_figs/plot_attribution_figs.ipynb`. 
