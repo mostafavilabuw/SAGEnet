@@ -1,7 +1,7 @@
 This directory contains the SAGEnet editable package. 
 
 ## attributions.py 
-- Save model attributions, identify seqlets, cluster seqlets, and match clusters to database. For usage, see READme in /script/attributions/
+- Save model attributions, identify seqlets, cluster seqlets, and match clusters to database. For usage, see READme in `/script/attributions/`
 
 ## data.py 
 - Initialize PersonalGenomeDataset (from reference genome, WGS data, and y data), ReferenceGenomeDataset (from reference genome, y data), or VariantDataset (from reference genome, variant information). Y data can be any output measured per-individaul -- we use gene expression and DNA methylation in our analyses.
