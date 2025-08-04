@@ -207,43 +207,33 @@ class ReferenceGenomeDataset(Dataset):
         vcf_file_path=None,
         train_subs=None,
         contig_prefix='',
-        median_or_mean_y_data='mean',
+        median_or_mean_y_data='median',
     ):
         """
         Initialize the ReferenceGenomeDataset object. 
 
         Parameters:
-        - metadata: DataFrame containing genome region-related information, specifically the columns 'chr', 'pos', and, optionally 'strand'. 'pos' should 
-            be the center of the region -- i.e., TSS for gene expression. Index should be region ID (for example, gene ENSG). 
-        - hg38_file_path: String path to the human genome (hg38) reference file (hg19 can also be used). 
-        - y_data: DataFrame with y data, indexed by region names, with sample names as columns.
-            If not provided, 0 will be used as a placeholder y value. 
+        - hg38_file_path: String path to the human genome (hg38) reference file.
         - input_len: Integer, size of the genomic window for model input. 
         - allow_reverse_complement: Boolean, whether or not to reverse complement regions on the negative strand. 
         - single_seq: Boolean, if True, return output of the shape of a ReferenceGenomeDataset datapoint, if False, return output of the shape of a PersonalGenomeDataset datapoint
         - pos_start: Integer, genome position start. If None, set to max(0, pos - self.input_len // 2)
         - pos_end: Integer, genome position start. If None, set to min(self.genome.get_reference_length(f"chr{chr}"), pos + self.input_len // 2)
-        - majority_seq: Boolean, if True, use the "majority sequence" of the training individuals as reference sequence. If false, just use the reference sequence. 
-            "majority sequence" means that for each variant in the training individuals, if a majority of training individuals have the variant, it is inserted. 
-        - vcf_file_path: String path to the VCF file with variant information. Only used if majority_seq=True. 
-        - train_subs: List of training individuals to be used for calculating mean y_data and MAF). If not provided, train_subs is set to sample_list. 
-        - contig_prefix: String before chromosome number in VCF file (for, example ROSMAP VCF uses '1' vs. GTEx uses 'chr1', 
-            so for ROSMAP set contig_prefix='', for GTEx set contig_prefix='chr'. Only used if majority_seq=True. 
         """
-
+        
         self.metadata = metadata
         self.input_len = input_len
         self.y_data = y_data
         self.allow_reverse_complement=allow_reverse_complement
         self.genome = pysam.FastaFile(hg38_file_path)
+        self.hg38_file_path=hg38_file_path
         self.single_seq=single_seq
         self.pos_start=pos_start
         self.pos_end=pos_end
+
+        # for majority seq 
         self.majority_seq=majority_seq
         self.vcf_file_path=vcf_file_path
-        self.train_subs=train_subs
-        if train_subs is None and y_data is not None: 
-            train_subs=y_data.columns # if using y_data but train_subs is not provided, make train_subs=all subs in y_data
         self.train_subs=train_subs
         self.contig_prefix=contig_prefix
         self.median_or_mean_y_data=median_or_mean_y_data
@@ -263,8 +253,9 @@ class ReferenceGenomeDataset(Dataset):
         chr = region_info["chr"]
         pos = region_info["pos"]
         
-        if pos_end>self.genome.get_reference_length(f"chr{chr}"): 
-            raise ValueError(f"provided {pos_end} out of chromosome range")
+        if self.pos_end is not None: 
+            if self.pos_end>self.genome.get_reference_length(f"chr{chr}"): 
+                raise ValueError(f"provided {pos_end} out of chromosome range")
         
         if self.pos_start is None or self.pos_end is None: 
             pos_start, pos_end = get_seq_start_and_end(chr, pos, self.input_len, hg38_file_path=self.hg38_file_path)
