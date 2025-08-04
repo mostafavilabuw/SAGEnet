@@ -86,7 +86,7 @@ def modify_ref_seq_from_records_list(seq, records_list, records_alt_idxs, seq_st
 
         if seq[position : position + len(ref_allele)] != ref_allele:
             if verbose:
-                print(f"warning: reference allele at position idx {position} (position {record.pos}) ({ref_allele}) does not match the sequence ({seq[position : position + len(ref_allele)]}) \n if this warning shows up infrequently, it is likely due to overlapping variants (which is not an issue)")
+                print(f"warning: reference allele at position idx {position} (position {record.pos}) ({ref_allele}) does not match the sequence ({seq[position : position + len(ref_allele)]}) \n this is likely due to overlapping variant positions; you can use bcftools plugin remove-overlaps to remove these records from your VCF")
 
         seq = seq_before_variant + alt_allele + seq_after_variant
         shift += len(alt_allele) - len(ref_allele)
@@ -143,7 +143,7 @@ def modify_personal_seqs_from_records_list(seq, records_list, sample_of_interest
                     if seq[position : position + len(ref_allele)] != ref_allele:
                         if verbose:
                             print(
-                                f"warning: reference allele at position idx {position} (position {record.pos}) ({ref_allele}) does not match the sequence for {'maternal' if idx == 0 else 'paternal'} ({seq[position : position + len(ref_allele)]}) \n if this warning shows up infrequently, it is likely due to overlapping variants (which is not an issue)"
+                                f"warning: reference allele at position idx {position} (position {record.pos}) ({ref_allele}) does not match the sequence for {'maternal' if idx == 0 else 'paternal'} ({seq[position : position + len(ref_allele)]}) \n this is likely due to overlapping variant positions; you can use bcftools plugin remove-overlaps to remove these records from your VCF"
                             )
                         continue
 
