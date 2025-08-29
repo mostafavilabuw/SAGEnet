@@ -13,7 +13,7 @@ mamba env create -f environment.yml
 mamba activate SAGEnet
 ```
 
-Mamba is a faster implementation of the conda package manager. If you don't already have mamba installed, you can install it using conda (https://anaconda.org/conda-forge/mamba) or use conda instead. 
+Mamba is a faster implementation of the conda package manager. If you don't already have mamba installed, you can install it using conda (https://anaconda.org/conda-forge/mamba) or use conda instead. With mamba, creating this environment should take <15 min.
 
 Then, install the `SAGEnet` editable package: 
 ```bash
