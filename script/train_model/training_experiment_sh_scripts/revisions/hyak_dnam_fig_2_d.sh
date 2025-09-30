@@ -28,7 +28,7 @@ model_save_dir=/gscratch/mostafavilab/aspiro17/DNAm_and_expression/results/revis
 ref_model_ckpt_path=/gscratch/mostafavilab/aspiro17/DNAm_and_expression/results/rsagenet/dnam/rosmap/frac_regions_1.0/24849171/epoch=14-step=108183.ckpt
 
 #metadata_path=/data/aspiro17/DNAm_and_expression/data/ROSMAP/DNAm/dnam_meta_hg38_incl_non_cg.csv
-metadata_path=/gscratch/mopwdstafavilab/aspiro17/DNAm_and_expression/data/ROSMAP_DNAm/dnam_meta_hg38.csv
+metadata_path=/gscratch/mostafavilab/aspiro17/DNAm_and_expression/data/ROSMAP_DNAm/dnam_meta_hg38.csv
 
 hg38_file_path=/gscratch/mostafavilab/tuxm/project/PersonalGenomeExpression-dev/data/Genome/hg38.fa
 y_data_path="/gscratch/mostafavilab/aspiro17/DNAm_and_expression/data/ROSMAP_DNAm/methylationSNMnorm.csv"

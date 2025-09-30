@@ -5,7 +5,7 @@
 #SBATCH --error=./output/dnam_version_of_fig_2_c%j.err
 #SBATCH --partition=gpu-a40
 #SBATCH --account=mostafavilab
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=15G
 #SBATCH --gres=gpu:2
