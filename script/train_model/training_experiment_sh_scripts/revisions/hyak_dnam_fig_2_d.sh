@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#SBATCH --nodes=4
 #SBATCH --job-name=dnam_version_of_fig_2_d
 #SBATCH --output=./output/dnam_version_of_fig_2_d%j.out
 #SBATCH --error=./output/dnam_version_of_fig_2_d%j.err
@@ -33,6 +34,7 @@ hg38_file_path=/gscratch/mostafavilab/tuxm/project/PersonalGenomeExpression-dev/
 y_data_path="/gscratch/mostafavilab/aspiro17/DNAm_and_expression/data/ROSMAP_DNAm/methylationSNMnorm.csv"
 enet_res_path="/gscratch/mostafavilab/aspiro17/DNAm_and_expression/results/enet/dnam/summarized_res/rosmap/input_len_10000/maf_filter_0.01/pearson_corrs.csv"
 vcf_path="/gscratch/mostafavilab/tuxm/project/PersonalGenomeExpression-dev/data/ROSMAP/wholeGenomeSeq/chrAll.phased.vcf.gz"
+sub_data_dir='/gscratch/mostafavilab/aspiro17/DNAm_and_expression/input_data/individual_lists/'
 
 model_type=psagenet
 input_len=10000
@@ -50,6 +52,6 @@ region_idx_start=0
 for num_train_regions in 5000 10000 15000 20000 25000; do
     for rand_regions in 0 1; do # add em rand vs. not rand 
         wandb_job_name=panel_d_rand_regions_${rand_regions}_n_training_regions_${num_train_regions}
-        python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/psagenet/train_psagenet.py --wandb_project ${wandb_project} --model_save_dir ${model_save_dir} --ref_model_ckpt_path ${ref_model_ckpt_path} --n_devices ${n_devices} --model_type ${model_type} --input_len ${input_len} --num_train_regions ${num_train_regions} --num_val_regions ${num_val_regions} --wandb_job_name ${wandb_job_name} --include_test_regions_test_subs_dataloader ${include_test_regions_test_subs_dataloader} --seed ${seed} --lam_diff ${lam_diff} --lam_ref ${lam_ref} --max_epochs ${max_epochs} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --region_idx_start ${region_idx_start} --rand_regions ${rand_regions} --hg38_file_path ${hg38_file_path} --y_data_path ${y_data_path} --enet_res_path ${enet_res_path} --vcf_path ${vcf_path} --num_nodes ${num_nodes}
+        python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/psagenet/train_psagenet.py --wandb_project ${wandb_project} --model_save_dir ${model_save_dir} --ref_model_ckpt_path ${ref_model_ckpt_path} --n_devices ${n_devices} --model_type ${model_type} --input_len ${input_len} --num_train_regions ${num_train_regions} --num_val_regions ${num_val_regions} --wandb_job_name ${wandb_job_name} --include_test_regions_test_subs_dataloader ${include_test_regions_test_subs_dataloader} --seed ${seed} --lam_diff ${lam_diff} --lam_ref ${lam_ref} --max_epochs ${max_epochs} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --region_idx_start ${region_idx_start} --rand_regions ${rand_regions} --hg38_file_path ${hg38_file_path} --y_data_path ${y_data_path} --enet_res_path ${enet_res_path} --vcf_path ${vcf_path} --num_nodes ${num_nodes} --sub_data_dir ${sub_data_dir}
     done
 done  
