@@ -10,7 +10,7 @@
 #SBATCH --mem=15G
 #SBATCH --gres=gpu:2
 #SBATCH --time=20:00:00 
-#SBATCH --exclude=g3007
+#SBATCH --exclude=g3007,g3052
 
 source ~/.bashrc
 source /gscratch/mostafavilab/aspiro17/micromamba/etc/profile.d/micromamba.sh
@@ -50,6 +50,7 @@ max_epochs=1
 for n_training_subs in 5 50 200 400; do
     for region_idx_start in 0 20000; do # easier set vs. harder set 
         wandb_job_name=panel_c_region_idx_start_${region_idx_start}_n_training_subs_${n_training_subs}
+        echo "${wandb_job_name}"
         srun python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/psagenet/train_psagenet.py --wandb_project ${wandb_project} --model_save_dir ${model_save_dir} --ref_model_ckpt_path ${ref_model_ckpt_path} --n_devices ${n_devices} --model_type ${model_type} --input_len ${input_len} --num_train_regions ${num_train_regions} --num_val_regions ${num_val_regions} --wandb_job_name ${wandb_job_name} --include_test_regions_test_subs_dataloader ${include_test_regions_test_subs_dataloader} --seed ${seed} --lam_diff ${lam_diff} --lam_ref ${lam_ref} --max_epochs ${max_epochs} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --n_training_subs ${n_training_subs} --region_idx_start ${region_idx_start} --hg38_file_path ${hg38_file_path} --y_data_path ${y_data_path} --enet_res_path ${enet_res_path} --vcf_path ${vcf_path} --sub_data_dir ${sub_data_dir}
     done 
 done
