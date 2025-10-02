@@ -1,24 +1,22 @@
 #!/bin/bash
 
-#SBATCH --nodes=4
-#SBATCH --job-name=dnam_version_of_fig_2_d
-#SBATCH --output=./output/dnam_version_of_fig_2_d%j.out
-#SBATCH --error=./output/dnam_version_of_fig_2_d%j.err
-#SBATCH --partition=ckpt-all
+#SBATCH --job-name=dnam_version_of_fig_2_c
+#SBATCH --output=./output/dnam_version_of_fig_2_c%j.out
+#SBATCH --error=./output/dnam_version_of_fig_2_c%j.err
+#SBATCH --partition=gpu-a40
 #SBATCH --account=mostafavilab
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=8
+#SBATCH --ntasks-per-node=2
+#SBATCH --cpus-per-task=6
 #SBATCH --mem=15G
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #SBATCH --time=20:00:00 
-#SBATCH --exclude=g3007
+#SBATCH --exclude=g3007,g3052
 
 source ~/.bashrc
 source /gscratch/mostafavilab/aspiro17/micromamba/etc/profile.d/micromamba.sh
 micromamba activate SAGEnet
 
-n_devices=1
-num_nodes=4
+n_devices=2
 
 wandb_project=dnam_version_of_fig_2
 #model_save_dir=/data/aspiro17/DNAm_and_expression/psagenet/
@@ -49,9 +47,17 @@ patience=10
 # D 
 max_epochs=1
 region_idx_start=0
+
+# top 
+#rand_regions=0
+#for num_train_regions in 10000 15000 25000; do
+#    wandb_job_name=chelan_panel_d_rand_regions_${rand_regions}_n_training_regions_${num_train_regions}
+#    python /homes/gws/aspiro17/DNAm_and_expression/script/psagenet/train_psagenet.py --wandb_project ${wandb_project} --model_save_dir ${model_save_dir} --ref_model_ckpt_path ${ref_model_ckpt_path} --n_devices ${n_devices} --model_type ${model_type} --input_len ${input_len} --num_train_regions ${num_train_regions} --num_val_regions ${num_val_regions} --wandb_job_name ${wandb_job_name} --include_test_regions_test_subs_dataloader ${include_test_regions_test_subs_dataloader} --seed ${seed} --lam_diff ${lam_diff} --lam_ref ${lam_ref} --max_epochs ${max_epochs} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --region_idx_start ${region_idx_start} --rand_regions ${rand_regions}
+#done  
+
+# rand 
+rand_regions=1
 for num_train_regions in 5000 10000 15000 20000 25000; do
-    for rand_regions in 0 1; do # add em rand vs. not rand 
-        wandb_job_name=panel_d_rand_regions_${rand_regions}_n_training_regions_${num_train_regions}
-        srun python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/psagenet/train_psagenet.py --wandb_project ${wandb_project} --model_save_dir ${model_save_dir} --ref_model_ckpt_path ${ref_model_ckpt_path} --n_devices ${n_devices} --model_type ${model_type} --input_len ${input_len} --num_train_regions ${num_train_regions} --num_val_regions ${num_val_regions} --wandb_job_name ${wandb_job_name} --include_test_regions_test_subs_dataloader ${include_test_regions_test_subs_dataloader} --seed ${seed} --lam_diff ${lam_diff} --lam_ref ${lam_ref} --max_epochs ${max_epochs} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --region_idx_start ${region_idx_start} --rand_regions ${rand_regions} --hg38_file_path ${hg38_file_path} --y_data_path ${y_data_path} --enet_res_path ${enet_res_path} --vcf_path ${vcf_path} --num_nodes ${num_nodes} --sub_data_dir ${sub_data_dir}
-    done
+    wandb_job_name=chelan_panel_d_rand_regions_${rand_regions}_n_training_regions_${num_train_regions}
+    python /homes/gws/aspiro17/DNAm_and_expression/script/psagenet/train_psagenet.py --wandb_project ${wandb_project} --model_save_dir ${model_save_dir} --ref_model_ckpt_path ${ref_model_ckpt_path} --n_devices ${n_devices} --model_type ${model_type} --input_len ${input_len} --num_train_regions ${num_train_regions} --num_val_regions ${num_val_regions} --wandb_job_name ${wandb_job_name} --include_test_regions_test_subs_dataloader ${include_test_regions_test_subs_dataloader} --seed ${seed} --lam_diff ${lam_diff} --lam_ref ${lam_ref} --max_epochs ${max_epochs} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --region_idx_start ${region_idx_start} --rand_regions ${rand_regions}
 done  
