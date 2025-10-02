@@ -3,12 +3,12 @@
 #SBATCH --job-name=dnam_version_of_fig_2_d
 #SBATCH --output=./output/dnam_version_of_fig_2_d%j.out
 #SBATCH --error=./output/dnam_version_of_fig_2_d%j.err
-#SBATCH --partition=gpu-a40
-#SBATCH --account=mostafavilab
-#SBATCH --ntasks-per-node=2
+#SBATCH --partition=gpu-a100
+#SBATCH --account=cse
+#SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=15G
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:4
 #SBATCH --time=20:00:00 
 #SBATCH --exclude=g3007,g3052
 
@@ -16,7 +16,7 @@ source ~/.bashrc
 source /gscratch/mostafavilab/aspiro17/micromamba/etc/profile.d/micromamba.sh
 micromamba activate SAGEnet
 
-n_devices=2
+n_devices=4
 
 wandb_project=dnam_version_of_fig_2
 #model_save_dir=/data/aspiro17/DNAm_and_expression/psagenet/
