@@ -35,10 +35,9 @@ psagenet_base_dir=/gscratch/mostafavilab/aspiro17/DNAm_and_expression/results/re
 for region_split in train test; do 
     for region_idx_start in 0 20000; do # easier set vs. harder set 
         for n_training_subs in 5 50 200 400; do 
-                model_ckpt=panel_c_region_idx_start_${region_idx_start}_n_training_subs_${n_training_subs}
-                srun python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/eval/eval_model.py --model_type ${model_type} --ckpt_path ${model_ckpt} --eval_on_ref_seq 0 --train_val_test_regions ${region_split} --num_eval_regions ${num_eval_regions} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --enet_res_path ${enet_res_path} --device ${device} --train_val_test_subs ${train_val_test_subs} --hg38_file_path ${hg38_file_path} --vcf_path ${vcf_path} --sub_data_dir ${sub_data_dir} --region_idx_start ${region_idx_start}
-            done 
+            model_ckpt=${psagenet_base_dir}panel_c_region_idx_start_${region_idx_start}_n_training_subs_${n_training_subs}
+            srun python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/eval/eval_model.py --model_type ${model_type} --ckpt_path ${model_ckpt} --eval_on_ref_seq 0 --train_val_test_regions ${region_split} --num_eval_regions ${num_eval_regions} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --enet_res_path ${enet_res_path} --device ${device} --train_val_test_subs ${train_val_test_subs} --hg38_file_path ${hg38_file_path} --vcf_path ${vcf_path} --sub_data_dir ${sub_data_dir} --region_idx_start ${region_idx_start}
         done 
-    done
+    done 
 done 
 
