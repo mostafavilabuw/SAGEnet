@@ -3,8 +3,8 @@
 #SBATCH --job-name=eval_dnam_fig_2c
 #SBATCH --output=./output/eval_dnam_fig_2c_%j.out
 #SBATCH --error=./output/eval_dnam_fig_2c_%j.err
-#SBATCH --partition=gpu-a100
-#SBATCH --account=cse
+#SBATCH --partition=gpu-a40
+#SBATCH --account=mostafavilab
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=15G
