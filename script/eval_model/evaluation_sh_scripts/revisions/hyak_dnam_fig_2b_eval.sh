@@ -38,8 +38,15 @@ harder_set_psagenet_model_ckpt_dir=/gscratch/mostafavilab/aspiro17/DNAm_and_expr
 
 for region_split in train test; do 
     for maf_min in -1 0.05 0.1 0.2 0.3 0.4; do  
-        for model_ckpt in ${easier_set_psagenet_model_ckpt_dir} ${harder_set_psagenet_model_ckpt_dir}; do 
-            srun python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/eval/eval_model.py --model_type ${model_type} --ckpt_path ${model_ckpt} --eval_on_ref_seq 0 --train_val_test_regions ${region_split} --num_eval_regions ${num_eval_regions} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --enet_res_path ${enet_res_path} --device ${device} --train_val_test_subs ${train_val_test_subs} --maf_min ${maf_min} --hg38_file_path ${hg38_file_path} --vcf_path ${vcf_path} --sub_data_dir ${sub_data_dir}
+        #for model_ckpt in ${easier_set_psagenet_model_ckpt_dir} ${harder_set_psagenet_model_ckpt_dir}; do 
+        for model_ckpt in ${harder_set_psagenet_model_ckpt_dir}; do 
+            if [[ "$model_ckpt" == "$easier_set_psagenet_model_ckpt_dir" ]]; then
+                region_idx_start=0
+            else
+                region_idx_start=20000
+            fi
+            echo "running model: ${model_ckpt}, region_idx_start=${region_idx_start}, maf_min=${maf_min}"
+            srun python /gscratch/mostafavilab/aspiro17/DNAm_and_expression/script/eval/eval_model.py --model_type ${model_type} --ckpt_path ${model_ckpt} --eval_on_ref_seq 0 --train_val_test_regions ${region_split} --num_eval_regions ${num_eval_regions} --new_chr_split ${new_chr_split} --metadata_path ${metadata_path} --enet_res_path ${enet_res_path} --device ${device} --train_val_test_subs ${train_val_test_subs} --maf_min ${maf_min} --hg38_file_path ${hg38_file_path} --vcf_path ${vcf_path} --sub_data_dir ${sub_data_dir} --region_idx_start ${region_idx_start}
         done 
     done 
 done
