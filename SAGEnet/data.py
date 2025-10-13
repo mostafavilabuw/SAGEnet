@@ -203,11 +203,11 @@ class ReferenceGenomeDataset(Dataset):
         single_seq=True,
         pos_start=None,
         pos_end=None,
-        majority_seq=True,
+        majority_seq=False,
         vcf_file_path=None,
         train_subs=None,
         contig_prefix='',
-        median_or_mean_y_data='median',
+        median_or_mean_y_data='mean',
     ):
         """
         Initialize the ReferenceGenomeDataset object. 
